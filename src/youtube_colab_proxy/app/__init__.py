@@ -42,7 +42,7 @@ def _fetch_thumb_bytes(vid: str, pref: str = "hq"):
 def create_app() -> Flask:
 	"""Create Flask app with API and frontend routes."""
 	templates_dir = os.path.join(os.path.dirname(__file__), "templates")
-	app = Flask(__name__, template_folder=templates_dir)
+	app = Flask(__name__, template_folder=templates_dir, static_folder=os.path.join(os.path.dirname(__file__), "static"))
 
 	@app.get("/")
 	def index():  # type: ignore
@@ -96,16 +96,23 @@ def create_app() -> Flask:
 	@app.get("/api/playlist")
 	def api_playlist():  # type: ignore
 		raw_url = (request.args.get("url") or "").strip()
+		page = int((request.args.get("page") or "1").strip() or 1)
+		page = max(1, page)
 		if not raw_url:
 			return jsonify({"items": [], "error": "Missing url"}), 400
+		from ..const import PL_PAGE_SIZE
 		import yt_dlp
 		ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
 		try:
 			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 				info = ydl.extract_info(raw_url, download=False)
 			entries = info.get("entries") or []
+			total = len(entries)
+			start = (page - 1) * PL_PAGE_SIZE
+			end = min(start + PL_PAGE_SIZE, total)
+			page_entries = entries[start:end]
 			items = []
-			for e in entries:
+			for e in page_entries:
 				vid = (e.get("id") or e.get("url") or "").strip()
 				title = (e.get("title") or "").strip()
 				if not (vid and YOUTUBE_ID_RE.match(vid)):
@@ -117,7 +124,13 @@ def create_app() -> Flask:
 					"stream": f"/stream?id={vid}",
 					"thumb": f"/api/thumb/{vid}?q=hq",
 				})
-			return jsonify({"items": items})
+			return jsonify({
+				"items": items,
+				"page": page,
+				"pageSize": PL_PAGE_SIZE,
+				"total": total,
+				"totalPages": (total + PL_PAGE_SIZE - 1) // PL_PAGE_SIZE,
+			})
 		except Exception as e:
 			return jsonify({"items": [], "error": str(e)}), 500
 

@@ -1,0 +1,18 @@
+body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Roboto,Inter,sans-serif; }
+ a { color: inherit; }
+ .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+ .tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+ .tab { padding: 8px 12px; border-radius: 10px; border: 1px solid #2a3140; cursor: pointer; }
+ .tab.active { background: #1d2430; border-color: #3a4458; }
+ .row { display: flex; gap: 8px; align-items: center; }
+ .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+ .card { background: #171b21; border: 1px solid #262b36; border-radius: 14px; padding: 12px; cursor: pointer; }
+ .card:hover { outline: 2px solid #2e7dff55; }
+ .card.active { outline: 2px solid #2e7dffaa; }
+ .thumb { aspect-ratio: 16/9; width: 100%; object-fit: cover; border-radius: 8px; background:#0b0e12; }
+ .muted { opacity: .75; font-size: 12px; }
+ input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3140; background: #0f141b; color: #eaeef2; }
+ button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3140; background: #1a2230; color: #eaeef2; cursor: pointer; }
+ button:hover { background: #223044; }
+ .player { width: 100%; max-width: 960px; margin: 8px auto 0; display: block; }
+ .pill { background: #23304a; border-radius: 999px; padding: 2px 8px; font-size: 12px; } 
