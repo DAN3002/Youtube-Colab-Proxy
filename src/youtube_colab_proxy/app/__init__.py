@@ -28,9 +28,13 @@ def _pick_thumb_candidates(vid: str, pref: str = "hq"):
 
 
 def _fetch_thumb_bytes(vid: str, pref: str = "hq"):
+	from .. import const as _const
+	s = requests.Session()
+	if _const.OUTBOUND_PROXY:
+		s.proxies.update({"http": _const.OUTBOUND_PROXY, "https": _const.OUTBOUND_PROXY})
 	for url in _pick_thumb_candidates(vid, pref):
 		try:
-			r = requests.get(url, timeout=10, headers=THUMB_HEADERS)
+			r = s.get(url, timeout=10, headers=THUMB_HEADERS)
 			if r.status_code == 200 and r.content:
 				ctype = r.headers.get("Content-Type", "image/jpeg")
 				return r.content, ctype
@@ -88,7 +92,19 @@ def create_app() -> Flask:
 			# Use yt_dlp search to avoid httpx/proxies issues from youtubesearchpython
 			from ..const import PL_PAGE_SIZE
 			import yt_dlp
-			ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True, "noplaylist": True}
+			from .. import const as _const
+			ydl_opts = {
+				"quiet": True,
+				"extract_flat": True,
+				"skip_download": True,
+				"noplaylist": True,
+				"http_headers": {
+					"Accept-Language": _const.YT_LANG,
+				},
+				"geo_bypass_country": _const.YT_GEO_BYPASS_COUNTRY,
+			}
+			if _const.OUTBOUND_PROXY:
+				ydl_opts["proxy"] = _const.OUTBOUND_PROXY
 			need_count = max(1, min(page * PL_PAGE_SIZE, 200))
 			query = f"ytsearch{need_count}:{q}"
 			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -130,7 +146,18 @@ def create_app() -> Flask:
 			return jsonify({"items": [], "error": "Missing url"}), 400
 		from ..const import PL_PAGE_SIZE
 		import yt_dlp
-		ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
+		from .. import const as _const
+		ydl_opts = {
+			"quiet": True,
+			"extract_flat": True,
+			"skip_download": True,
+			"http_headers": {
+				"Accept-Language": _const.YT_LANG,
+			},
+			"geo_bypass_country": _const.YT_GEO_BYPASS_COUNTRY,
+		}
+		if _const.OUTBOUND_PROXY:
+			ydl_opts["proxy"] = _const.OUTBOUND_PROXY
 		try:
 			norm_url = _normalize_list_url(raw_url)
 			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
