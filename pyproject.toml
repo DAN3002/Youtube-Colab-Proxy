@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "youtube-colab-proxy"
+version = "0.1.0"
+description = "A minimal Python package scaffold for Youtube-Colab-Proxy."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+	{ name = "Dan" }
+]
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"License :: OSI Approved :: MIT License",
+	"Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/DAN3002/Youtube-Colab-Proxy"
+"Repository" = "https://github.com/DAN3002/Youtube-Colab-Proxy"
+
+[project.scripts]
+ycp = "youtube_colab_proxy.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"] 
