@@ -5,6 +5,7 @@ dist/
 build/
 .venv/
 .env
+env/
 .idea/
 .vscode/
 .coverage
