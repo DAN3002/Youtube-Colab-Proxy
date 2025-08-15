@@ -39,6 +39,23 @@ def _fetch_thumb_bytes(vid: str, pref: str = "hq"):
 	return None, None
 
 
+def _normalize_list_url(u: str) -> str:
+	"""Ensure channel URLs point to the uploads tab to list videos.
+	If URL is a channel-like URL (/@handle, /channel/, /user/, /c/), append /videos if missing.
+	"""
+	try:
+		low = u.lower()
+		if "youtube.com/" in low:
+			is_channel = ("youtube.com/@" in low) or ("/channel/" in low) or ("/user/" in low) or ("/c/" in low)
+			if is_channel and "/videos" not in low and "/shorts" not in low and "/streams" not in low and "/live" not in low:
+				if u.endswith('/'):
+					return u + "videos"
+				return u + "/videos"
+	except Exception:
+		pass
+	return u
+
+
 def create_app() -> Flask:
 	"""Create Flask app with API and frontend routes."""
 	templates_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -105,6 +122,7 @@ def create_app() -> Flask:
 
 	@app.get("/api/playlist")
 	def api_playlist():  # type: ignore
+		"""Return paginated items for a playlist or channel URL."""
 		raw_url = (request.args.get("url") or "").strip()
 		page = int((request.args.get("page") or "1").strip() or 1)
 		page = max(1, page)
@@ -114,8 +132,9 @@ def create_app() -> Flask:
 		import yt_dlp
 		ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
 		try:
+			norm_url = _normalize_list_url(raw_url)
 			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-				info = ydl.extract_info(raw_url, download=False)
+				info = ydl.extract_info(norm_url, download=False)
 			entries = info.get("entries") or []
 			total = len(entries)
 			start = (page - 1) * PL_PAGE_SIZE
@@ -128,16 +147,10 @@ def create_app() -> Flask:
 				if not (vid and YOUTUBE_ID_RE.match(vid)):
 					continue
 				ch = (e.get("uploader") or e.get("channel") or "").strip()
-				dur = e.get("duration") or e.get("duration_string") or ""
-				if isinstance(dur, str):
-					dur_str = dur
-				else:
-					dur_str = str(dur) if dur else ""
 				items.append({
 					"id": vid,
 					"title": title or "(no title)",
 					"channel": ch,
-					"duration": dur_str,
 					"watchUrl": f"https://www.youtube.com/watch?v={vid}",
 					"stream": f"/stream?id={vid}",
 					"thumb": f"/api/thumb/{vid}?q=hq",
