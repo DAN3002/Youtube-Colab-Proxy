@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>YouTube Proxy Player</title>
+		<link rel="stylesheet" href="https://unpkg.com/@mantine/core@7.17.8/styles.css" />
+		<style>
+			body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Roboto,Inter,sans-serif; }
+			a { color: inherit; }
+			.wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+			.tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+			.tab { padding: 8px 12px; border-radius: 10px; border: 1px solid #2a3140; cursor: pointer; }
+			.tab.active { background: #1d2430; border-color: #3a4458; }
+			.row { display: flex; gap: 8px; align-items: center; }
+			.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+			.card { background: #171b21; border: 1px solid #262b36; border-radius: 14px; padding: 12px; cursor: pointer; }
+			.card:hover { outline: 2px solid #2e7dff55; }
+			.thumb { aspect-ratio: 16/9; width: 100%; object-fit: cover; border-radius: 8px; background:#0b0e12; }
+			.muted { opacity: .75; font-size: 12px; }
+			input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3140; background: #0f141b; color: #eaeef2; }
+			button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3140; background: #1a2230; color: #eaeef2; cursor: pointer; }
+			button:hover { background: #223044; }
+			.player { width: 100%; max-width: 960px; margin: 8px auto 0; display: block; }
+			.pill { background: #23304a; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<h1 style="margin: 8px 0 0; font-weight: 700;">YouTube Proxy Player</h1>
+			<div class="muted" style="margin-bottom: 6px;">Search hoặc dán video/playlist URL. Bấm vào card để phát qua proxy (seek OK).</div>
+
+			<div class="tabs" id="tabs">
+				<div class="tab active" data-tab="search">Search</div>
+				<div class="tab" data-tab="video">Video URL</div>
+				<div class="tab" data-tab="playlist">Playlist URL</div>
+			</div>
+
+			<div id="panel-search">
+				<div class="row">
+					<input id="q" type="text" placeholder="Search YouTube (vd: lo-fi hip hop)" />
+					<button id="btnSearch">Search</button>
+				</div>
+				<div id="results" class="grid" style="margin-top: 14px;"></div>
+			</div>
+
+			<div id="panel-video" style="display:none;">
+				<div class="row">
+					<input id="videoUrl" type="text" placeholder="Paste video URL hoặc 11-char ID" />
+					<button id="btnPlayUrl">Play</button>
+				</div>
+			</div>
+
+			<div id="panel-playlist" style="display:none;">
+				<div class="row">
+					<input id="playlistUrl" type="text" placeholder="Paste playlist URL" />
+					<button id="btnLoadList">Load playlist</button>
+				</div>
+				<div id="plist" class="grid" style="margin-top: 14px;"></div>
+			</div>
+
+			<div id="playerWrap" style="margin-top: 18px; display:none;">
+				<div class="row" style="justify-content: space-between;">
+					<div id="nowPlaying" class="muted"></div>
+					<a id="openStream" class="pill" href="#" target="_blank" rel="noopener">Open stream</a>
+				</div>
+				<video id="player" class="player" controls playsinline preload="metadata"></video>
+			</div>
+		</div>
+
+		<script>
+			const $ = (sel) => document.querySelector(sel);
+			const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+			$$('.tab').forEach((t) => {
+				t.addEventListener('click', () => {
+					$$('.tab').forEach((x) => x.classList.remove('active'));
+					t.classList.add('active');
+					const tab = t.dataset.tab;
+					$('#panel-search').style.display = tab === 'search' ? 'block' : 'none';
+					$('#panel-video').style.display = tab === 'video' ? 'block' : 'none';
+					$('#panel-playlist').style.display = tab === 'playlist' ? 'block' : 'none';
+				});
+			});
+
+			const renderCards = (mountNode, items) => {
+				mountNode.innerHTML = items.map((v) => `
+					<div class="card" data-id="${v.id}" data-title="${encodeURIComponent(v.title)}">
+						<img class="thumb" loading="lazy" src="${v.thumb}" alt="${v.title}" />
+						<div style="margin-top:8px; font-weight:600;">${v.title}</div>
+						<div class="muted">${v.channel || ''}</div>
+						<div class="muted">${v.duration || ''}</div>
+					</div>
+				`).join('');
+				mountNode.querySelectorAll('.card').forEach((el) => {
+					el.addEventListener('click', () => {
+						const id = el.getAttribute('data-id');
+						const title = decodeURIComponent(el.getAttribute('data-title') || '');
+						playById(id, title);
+					});
+				});
+			};
+
+			const doSearch = async () => {
+				const q = $('#q').value.trim();
+				if (!q) return;
+				$('#results').innerHTML = '<div class="muted">Searching…</div>';
+				try {
+					const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+					const j = await r.json();
+					renderCards($('#results'), j.items || []);
+				} catch (e) {
+					$('#results').innerHTML = `<div class="muted">Search failed: ${e}</div>`;
+				}
+			};
+			$('#btnSearch').addEventListener('click', doSearch);
+			$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+			const playUrl = () => {
+				const u = $('#videoUrl').value.trim();
+				if (!u) return;
+				setPlayer(`/stream?url=${encodeURIComponent(u)}`, 'Custom video');
+			};
+			$('#btnPlayUrl').addEventListener('click', playUrl);
+			$('#videoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') playUrl(); });
+
+			const loadPlaylist = async () => {
+				const u = $('#playlistUrl').value.trim();
+				if (!u) return;
+				$('#plist').innerHTML = '<div class="muted">Loading playlist…</div>';
+				try {
+					const r = await fetch(`/api/playlist?url=${encodeURIComponent(u)}`);
+					const j = await r.json();
+					if (j.error) {
+						$('#plist').innerHTML = `<div class=\"muted\">${j.error}</div>`;
+					} else {
+						renderCards($('#plist'), j.items || []);
+					}
+				} catch (e) {
+					$('#plist').innerHTML = `<div class="muted">Failed: ${e}</div>`;
+				}
+			};
+			$('#btnLoadList').addEventListener('click', loadPlaylist);
+			$('#playlistUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPlaylist(); });
+
+			const setPlayer = (src, title) => {
+				const v = $('#player');
+				v.src = src;
+				v.currentTime = 0;
+				v.play().catch(() => {});
+				$('#playerWrap').style.display = 'block';
+				$('#nowPlaying').textContent = title || '';
+				$('#openStream').href = src;
+			};
+			const playById = (id, title) => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title);
+		</script>
+	</body>
+</html> 

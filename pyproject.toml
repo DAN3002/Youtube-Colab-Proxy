@@ -17,6 +17,12 @@ classifiers = [
 	"License :: OSI Approved :: MIT License",
 	"Operating System :: OS Independent",
 ]
+dependencies = [
+	"yt-dlp",
+	"youtube-search-python",
+	"flask",
+	"portpicker",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/DAN3002/Youtube-Colab-Proxy"
@@ -26,4 +32,7 @@ classifiers = [
 ycp = "youtube_colab_proxy.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src"] 
+where = ["src"]
+
+[tool.setuptools.package-data]
+"youtube_colab_proxy" = ["templates/*.html"]
