@@ -63,23 +63,25 @@ def create_app() -> Flask:
 	@app.get("/api/search")
 	def api_search():  # type: ignore
 		q = (request.args.get("q") or "").strip()
-		limit = request.args.get("limit", "15")
-		try:
-			limit_int = max(1, min(int(limit), 50))
-		except Exception:
-			limit_int = 15
+		page = int((request.args.get("page") or "1").strip() or 1)
+		page = max(1, page)
 		if not q:
-			return jsonify({"items": []})
+			return jsonify({"items": [], "page": page, "pageSize": 0, "hasMore": False})
 		try:
 			# Use yt_dlp search to avoid httpx/proxies issues from youtubesearchpython
+			from ..const import PL_PAGE_SIZE
 			import yt_dlp
 			ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True, "noplaylist": True}
-			query = f"ytsearch{limit_int}:{q}"
+			need_count = max(1, min(page * PL_PAGE_SIZE, 200))
+			query = f"ytsearch{need_count}:{q}"
 			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 				info = ydl.extract_info(query, download=False)
 			entries = info.get("entries") or []
+			start = (page - 1) * PL_PAGE_SIZE
+			end = min(start + PL_PAGE_SIZE, len(entries))
+			page_entries = entries[start:end]
 			items = []
-			for e in entries:
+			for e in page_entries:
 				vid = (e.get("id") or e.get("url") or "").strip()
 				title = (e.get("title") or "").strip()
 				# duration may be in seconds or string; we keep string if available
@@ -96,9 +98,10 @@ def create_app() -> Flask:
 					"stream": f"/stream?id={vid}",
 					"thumb": f"/api/thumb/{vid}?q=hq",
 				})
-			return jsonify({"items": items})
+			has_more = len(entries) > end or (len(page_entries) == PL_PAGE_SIZE and need_count == page * PL_PAGE_SIZE)
+			return jsonify({"items": items, "page": page, "pageSize": PL_PAGE_SIZE, "hasMore": bool(has_more)})
 		except Exception as e:
-			return jsonify({"error": str(e), "items": []}), 500
+			return jsonify({"items": [], "page": page, "pageSize": 0, "hasMore": False, "error": str(e)}), 500
 
 	@app.get("/api/playlist")
 	def api_playlist():  # type: ignore
@@ -124,9 +127,17 @@ def create_app() -> Flask:
 				title = (e.get("title") or "").strip()
 				if not (vid and YOUTUBE_ID_RE.match(vid)):
 					continue
+				ch = (e.get("uploader") or e.get("channel") or "").strip()
+				dur = e.get("duration") or e.get("duration_string") or ""
+				if isinstance(dur, str):
+					dur_str = dur
+				else:
+					dur_str = str(dur) if dur else ""
 				items.append({
 					"id": vid,
 					"title": title or "(no title)",
+					"channel": ch,
+					"duration": dur_str,
 					"watchUrl": f"https://www.youtube.com/watch?v={vid}",
 					"stream": f"/stream?id={vid}",
 					"thumb": f"/api/thumb/{vid}?q=hq",

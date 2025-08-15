@@ -11,43 +11,25 @@
 		<div class="wrap">
 			<h1 style="margin: 8px 0 0; font-weight: 700;">YouTube Proxy Player</h1>
 
-			<div class="tabs" id="tabs">
-				<div class="tab active" data-tab="search">Search</div>
-				<div class="tab" data-tab="video">Video URL</div>
-				<div class="tab" data-tab="playlist">Playlist URL</div>
+			<div class="row">
+				<input id="q" type="text" placeholder="Paste YouTube link or type keywords" />
+				<button id="btnGo">Go</button>
 			</div>
+			<div id="status" class="muted" style="margin-top:8px;"></div>
 
-			<div id="panel-search">
-				<div class="row">
-					<input id="q" type="text" placeholder="Search YouTube" />
-					<button id="btnSearch">Search</button>
-				</div>
-				<div id="results" class="grid" style="margin-top: 14px;"></div>
-			</div>
-
-			<div id="panel-video" style="display:none;">
-				<div class="row">
-					<input id="videoUrl" type="text" placeholder="Paste video URL hoặc 11-char ID" />
-					<button id="btnPlayUrl">Play</button>
-				</div>
-			</div>
-
-			<div id="panel-playlist" style="display:none;">
-				<div class="row">
-					<input id="playlistUrl" type="text" placeholder="Paste playlist URL" />
-					<button id="btnLoadList">Load</button>
-				</div>
-				<div id="plist" class="grid" style="margin-top: 14px;"></div>
-				<div id="plistPager" class="row" style="margin-top: 8px; display:none;">
-					<button id="btnPlPrevPage">Prev page</button>
-					<div id="plPageInfo" class="muted"></div>
-					<button id="btnPlNextPage">Next page</button>
-				</div>
+			<div id="results" class="grid" style="margin-top: 14px;"></div>
+			<div id="pager" class="row" style="margin-top: 8px; display:none;">
+				<button id="btnPrevPage">Prev page</button>
+				<div id="pageInfo" class="muted"></div>
+				<button id="btnNextPage">Next page</button>
 			</div>
 
 			<div id="playerWrap" style="margin-top: 18px; display:none;">
 				<div class="row" style="justify-content: space-between;">
-					<div id="nowPlaying" class="muted"></div>
+					<div>
+						<div id="nowPlaying" style="font-weight:600;"></div>
+						<div id="nowChannel" class="muted"></div>
+					</div>
 					<a id="openStream" class="pill" href="#" target="_blank" rel="noopener">Open stream</a>
 				</div>
 				<video id="player" class="player" controls playsinline preload="metadata"></video>

@@ -1,34 +1,52 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-let playlistMeta = { url: '', page: 1, totalPages: 1, total: 0, pageSize: 8 };
-let playlistItems = [];
-let currentPlaylistIndex = -1; // global index across pages
+// Global playback state
+let currentMode = 'search'; // 'search' | 'playlist' | 'video'
+let paging = { page: 1, totalPages: 1, hasMore: false };
+let pageSize = 8;
+let searchQuery = '';
+let playlistUrl = '';
+let currentPlaylistIndex = -1; // global index across playlist
 
 const updatePlayerControls = () => {
 	$('#playerControls').style.display = currentPlaylistIndex >= 0 ? 'flex' : 'none';
 };
 
-// Tabs
-$$('.tab').forEach((t) => {
-	t.addEventListener('click', () => {
-		$$('.tab').forEach((x) => x.classList.remove('active'));
-		t.classList.add('active');
-		const tab = t.dataset.tab;
-		$('#panel-search').style.display = tab === 'search' ? 'block' : 'none';
-		$('#panel-video').style.display = tab === 'video' ? 'block' : 'none';
-		$('#panel-playlist').style.display = tab === 'playlist' ? 'block' : 'none';
-	});
-});
+const setStatus = (text) => { $('#status').textContent = text || ''; };
 
-// Generic grid renderer
+const clearListUI = () => {
+	$('#results').innerHTML = '';
+	$('#pager').style.display = 'none';
+};
+
+const formatDuration = (d) => {
+	if (!d) return '';
+	if (typeof d === 'string') {
+		// Keep as-is if already formatted like 3:45 or 1:02:03
+		return d;
+	}
+	const sec = Number(d) || 0;
+	const h = Math.floor(sec / 3600);
+	const m = Math.floor((sec % 3600) / 60);
+	const s = Math.floor(sec % 60);
+	const pad = (x) => String(x).padStart(2, '0');
+	return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+};
+
 const renderCards = (mountNode, items, {onClick} = {}) => {
+	// normalize duration/channel keys
+	items = (items || []).map(v => ({
+		...v,
+		duration: v.duration || v.duration_string || '',
+		channel: v.channel || (v.uploader || ''),
+	}));
 	mountNode.innerHTML = items.map((v) => `
 		<div class="card" data-id="${v.id}" data-title="${encodeURIComponent(v.title)}">
 			<img class="thumb" loading="lazy" src="${v.thumb}" alt="${v.title}" />
 			<div style="margin-top:8px; font-weight:600;">${v.title}</div>
 			<div class="muted">${v.channel || ''}</div>
-			<div class="muted">${v.duration || ''}</div>
+			<div class="muted">${formatDuration(v.duration) || ''}</div>
 		</div>
 	`).join('');
 	mountNode.querySelectorAll('.card').forEach((el, idx) => {
@@ -40,146 +58,164 @@ const renderCards = (mountNode, items, {onClick} = {}) => {
 	});
 };
 
-// Search
-const doSearch = async () => {
-	const q = $('#q').value.trim();
-	if (!q) return;
-	$('#results').innerHTML = '<div class="muted">Searching…</div>';
-	try {
-		const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-		const j = await r.json();
-		renderCards($('#results'), (j.items || []), {
-			onClick: ({ id, title }) => {
-				currentPlaylistIndex = -1;
-				updatePlayerControls();
-				setPlayer(`/stream?id=${encodeURIComponent(id)}`, title);
-			}
-		});
-	} catch (e) {
-		$('#results').innerHTML = `<div class="muted">Search failed: ${e}</div>`;
-	}
-};
-$('#btnSearch').addEventListener('click', doSearch);
-$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
-
-// Video URL
-const playUrl = () => {
-	const u = $('#videoUrl').value.trim();
-	if (!u) return;
-	currentPlaylistIndex = -1;
-	updatePlayerControls();
-	setPlayer(`/stream?url=${encodeURIComponent(u)}`, 'Custom video');
-};
-$('#btnPlayUrl').addEventListener('click', playUrl);
-$('#videoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') playUrl(); });
-
-// Backend playlist pagination
-const renderPlaylistPage = async (page) => {
-	const u = playlistMeta.url;
-	if (!u) return;
-	$('#plist').innerHTML = '<div class="muted">Loading…</div>';
-	try {
-		const r = await fetch(`/api/playlist?url=${encodeURIComponent(u)}&page=${page}`);
-		const j = await r.json();
-		if (j.error) {
-			$('#plist').innerHTML = `<div class=\"muted\">${j.error}</div>`;
-			return;
-		}
-		playlistMeta.page = j.page;
-		playlistMeta.totalPages = j.totalPages;
-		playlistMeta.total = j.total;
-		playlistMeta.pageSize = j.pageSize;
-		playlistItems = j.items || [];
-		renderCards($('#plist'), playlistItems, {
-			onClick: ({ idx }) => {
-				const globalIdx = (playlistMeta.page - 1) * playlistMeta.pageSize + idx;
-				playPlaylistIndex(globalIdx);
-			}
-		});
-		// highlight active if visible
-		Array.from($('#plist').querySelectorAll('.card')).forEach((el, i) => {
-			const globalIdx = (playlistMeta.page - 1) * playlistMeta.pageSize + i;
-			if (globalIdx === currentPlaylistIndex) el.classList.add('active');
-			else el.classList.remove('active');
-		});
-		$('#plistPager').style.display = playlistMeta.totalPages > 1 ? 'flex' : 'none';
-		$('#plPageInfo').textContent = `Page ${playlistMeta.page} / ${playlistMeta.totalPages}`;
-	} catch (e) {
-		$('#plist').innerHTML = `<div class="muted">Failed: ${e}</div>`;
-	}
-};
-
-const loadPlaylist = async () => {
-	const u = $('#playlistUrl').value.trim();
-	if (!u) return;
-	playlistMeta.url = u;
-	currentPlaylistIndex = -1;
-	updatePlayerControls();
-	await renderPlaylistPage(1);
-};
-$('#btnLoadList').addEventListener('click', loadPlaylist);
-$('#playlistUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPlaylist(); });
-$('#btnPlPrevPage').addEventListener('click', () => {
-	if (playlistMeta.page > 1) renderPlaylistPage(playlistMeta.page - 1);
-});
-$('#btnPlNextPage').addEventListener('click', () => {
-	if (playlistMeta.page < playlistMeta.totalPages) renderPlaylistPage(playlistMeta.page + 1);
-});
-
-// Player helpers
-const setPlayer = (src, title) => {
+const setPlayer = (src, title, channel='') => {
 	const v = $('#player');
 	v.src = src;
 	v.currentTime = 0;
 	v.play().catch(() => {});
 	$('#playerWrap').style.display = 'block';
 	$('#nowPlaying').textContent = title || '';
+	$('#nowChannel').textContent = channel || '';
 	$('#openStream').href = src;
 };
 
-const playById = (id, title) => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title);
+const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title, channel);
 
+// Backend calls
+const fetchSearchPage = async (q, page) => {
+	setStatus(`Search: "${q}" (page ${page})...`);
+	$('#results').innerHTML = '<div class="muted">Loading…</div>';
+	const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+	return r.json();
+};
+
+const fetchPlaylistPage = async (url, page) => {
+	setStatus(`Playlist page ${page}...`);
+	$('#results').innerHTML = '<div class="muted">Loading…</div>';
+	const r = await fetch(`/api/playlist?url=${encodeURIComponent(url)}&page=${page}`);
+	return r.json();
+};
+
+const renderSearch = async (page) => {
+	const j = await fetchSearchPage(searchQuery, page);
+	pageSize = j.pageSize || pageSize;
+	paging = { page: j.page || 1, totalPages: j.totalPages || (j.hasMore ? (j.page + 1) : 1), hasMore: !!j.hasMore };
+	renderCards($('#results'), (j.items || []), {
+		onClick: ({ id, title, el }) => {
+			currentMode = 'video';
+			currentPlaylistIndex = -1;
+			updatePlayerControls();
+			setStatus('Playing video');
+			const channel = el.querySelector('.muted')?.textContent || '';
+			playById(id, title, channel);
+		}
+	});
+	setStatus(`Search results (page ${paging.page}${paging.totalPages ? `/${paging.totalPages}` : ''})`);
+	updatePager();
+};
+
+const renderPlaylist = async (page) => {
+	const j = await fetchPlaylistPage(playlistUrl, page);
+	pageSize = j.pageSize || pageSize;
+	paging = { page: j.page || 1, totalPages: j.totalPages || 1, hasMore: (j.page || 1) < (j.totalPages || 1) };
+	renderCards($('#results'), (j.items || []), {
+		onClick: ({ idx }) => {
+			const globalIdx = (paging.page - 1) * pageSize + idx;
+			playPlaylistIndex(globalIdx);
+		}
+	});
+	// highlight playing item if visible
+	Array.from($('#results').querySelectorAll('.card')).forEach((el, i) => {
+		const gi = (paging.page - 1) * pageSize + i;
+		if (gi === currentPlaylistIndex) el.classList.add('active'); else el.classList.remove('active');
+	});
+	setStatus(`Playlist (page ${paging.page}/${paging.totalPages})`);
+	updatePager();
+};
+
+const updatePager = () => {
+	const p = $('#pager');
+	if (currentMode === 'search') {
+		p.style.display = (paging.page > 1 || paging.hasMore) ? 'flex' : 'none';
+		$('#pageInfo').textContent = `Page ${paging.page}` + (paging.totalPages ? ` / ${paging.totalPages}` : '');
+	} else if (currentMode === 'playlist') {
+		p.style.display = paging.totalPages > 1 ? 'flex' : 'none';
+		$('#pageInfo').textContent = `Page ${paging.page} / ${paging.totalPages}`;
+	} else {
+		p.style.display = 'none';
+	}
+};
+
+// Playlist playback helpers
 const playPlaylistIndex = async (globalIdx) => {
-	const total = playlistMeta.total;
-	if (globalIdx < 0 || globalIdx >= total) return;
+	if (!playlistUrl) return;
+	const total = (paging.totalPages || 1) * pageSize; // approximate, good enough to page next/prev
+	if (globalIdx < 0) return;
 	currentPlaylistIndex = globalIdx;
 	updatePlayerControls();
-	const page = Math.floor(globalIdx / playlistMeta.pageSize) + 1;
-	if (page !== playlistMeta.page) {
-		await renderPlaylistPage(page);
+	const page = Math.floor(globalIdx / pageSize) + 1;
+	if (page !== paging.page || currentMode !== 'playlist') {
+		currentMode = 'playlist';
+		await renderPlaylist(page);
 	}
-	const localIdx = globalIdx % playlistMeta.pageSize;
-	const item = $('#plist').querySelectorAll('.card')[localIdx];
+	const localIdx = globalIdx % pageSize;
+	const item = $('#results').querySelectorAll('.card')[localIdx];
 	if (item) {
 		const id = item.getAttribute('data-id');
 		const title = decodeURIComponent(item.getAttribute('data-title') || '');
-		playById(id, title);
+		const channel = item.querySelector('.muted')?.textContent || '';
+		setStatus('Playing from playlist');
+		playById(id, title, channel);
 	}
-	// re-highlight
-	Array.from($('#plist').querySelectorAll('.card')).forEach((el, i) => {
-		const gi = (playlistMeta.page - 1) * playlistMeta.pageSize + i;
+	Array.from($('#results').querySelectorAll('.card')).forEach((el, i) => {
+		const gi = (paging.page - 1) * pageSize + i;
 		if (gi === currentPlaylistIndex) el.classList.add('active'); else el.classList.remove('active');
 	});
 };
 
 const nextInPlaylist = async () => {
 	if (currentPlaylistIndex < 0) return;
-	const next = currentPlaylistIndex + 1;
-	if (next < playlistMeta.total) await playPlaylistIndex(next);
+	await playPlaylistIndex(currentPlaylistIndex + 1);
 };
-
 const prevInPlaylist = async () => {
 	if (currentPlaylistIndex <= 0) return;
-	const prev = currentPlaylistIndex - 1;
-	await playPlaylistIndex(prev);
+	await playPlaylistIndex(currentPlaylistIndex - 1);
 };
-
 $('#btnPrev').addEventListener('click', prevInPlaylist);
 $('#btnNext').addEventListener('click', nextInPlaylist);
+$('#player').addEventListener('ended', () => { if (currentPlaylistIndex >= 0) nextInPlaylist(); });
 
-// Auto play next when ended
-$('#player').addEventListener('ended', () => {
-	if (currentPlaylistIndex >= 0 && currentPlaylistIndex + 1 < playlistMeta.total) {
-		nextInPlaylist();
+// Input handling
+const isYouTubeUrl = (s) => /^https?:\/\/(www\.)?((youtube\.com\/)|(youtu\.be\/))/i.test(s);
+const isPlaylistUrl = (s) => /[?&]list=/.test(s);
+
+const go = async () => {
+	const s = $('#q').value.trim();
+	if (!s) return;
+	if (isYouTubeUrl(s)) {
+		if (isPlaylistUrl(s)) {
+			currentMode = 'playlist';
+			playlistUrl = s;
+			currentPlaylistIndex = -1;
+			updatePlayerControls();
+			setStatus('Loading playlist...');
+			await renderPlaylist(1);
+		} else {
+			currentMode = 'video';
+			currentPlaylistIndex = -1;
+			playlistUrl = '';
+			updatePlayerControls();
+			clearListUI();
+			setStatus('Playing video');
+			setPlayer(`/stream?url=${encodeURIComponent(s)}`, 'Custom video', '');
+		}
+	} else {
+		currentMode = 'search';
+		searchQuery = s;
+		currentPlaylistIndex = -1;
+		updatePlayerControls();
+		setStatus('Searching...');
+		await renderSearch(1);
 	}
+};
+$('#btnGo').addEventListener('click', go);
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+
+$('#btnPrevPage').addEventListener('click', async () => {
+	if (currentMode === 'search' && paging.page > 1) { setStatus('Searching...'); await renderSearch(paging.page - 1); }
+	else if (currentMode === 'playlist' && paging.page > 1) { setStatus('Loading playlist...'); await renderPlaylist(paging.page - 1); }
+});
+$('#btnNextPage').addEventListener('click', async () => {
+	if (currentMode === 'search' && (paging.hasMore || (paging.totalPages && paging.page < paging.totalPages))) { setStatus('Searching...'); await renderSearch(paging.page + 1); }
+	else if (currentMode === 'playlist' && paging.page < paging.totalPages) { setStatus('Loading playlist...'); await renderPlaylist(paging.page + 1); }
 }); 
