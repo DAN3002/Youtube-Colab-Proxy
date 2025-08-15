@@ -5,8 +5,8 @@ import requests
 from flask import Flask, request, jsonify, Response, render_template
 from youtubesearchpython import VideosSearch
 
-from .input_utils import normalize_youtube_url, YOUTUBE_ID_RE
-from .resolver import resolve_direct_media
+from ..utils.input import normalize_youtube_url, YOUTUBE_ID_RE
+from ..services.resolver import resolve_direct_media
 
 
 THUMB_HEADERS = {

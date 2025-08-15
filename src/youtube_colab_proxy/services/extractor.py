@@ -43,7 +43,7 @@ def extract_direct_media(youtube_url: str) -> Tuple[str, Dict[str, str]]:
 		if chosen_fmt:
 			direct_url = chosen_fmt.get("url")
 			if chosen_fmt.get("http_headers"):
-				headers.update(chosen_fmt["http_headers"])
+				headers.update(chosen_fmt["http_headers"]) 
 
 	if not direct_url:
 		raise RuntimeError(

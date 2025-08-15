@@ -72,6 +72,7 @@
 			const $ = (sel) => document.querySelector(sel);
 			const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+			$('.tab');
 			$$('.tab').forEach((t) => {
 				t.addEventListener('click', () => {
 					$$('.tab').forEach((x) => x.classList.remove('active'));

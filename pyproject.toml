@@ -35,4 +35,4 @@ ycp = "youtube_colab_proxy.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"youtube_colab_proxy" = ["templates/*.html"]
+"youtube_colab_proxy" = ["app/templates/*.html"]

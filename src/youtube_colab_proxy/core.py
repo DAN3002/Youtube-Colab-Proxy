@@ -1,8 +1,8 @@
 from typing import Optional, Tuple
 
-from .server import start_flask_in_thread
-from .colab_embed import get_public_proxy_url, display_app_link
-from .webapp import create_app
+from .app.server import start_flask_in_thread
+from .integrations.colab import get_public_proxy_url, display_app_link
+from .app import create_app
 
 
 def start(host: str = "0.0.0.0", port: Optional[int] = None) -> str:

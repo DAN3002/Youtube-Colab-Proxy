@@ -14,4 +14,4 @@ def start_flask_in_thread(app, host: str = "0.0.0.0", port: Optional[int] = None
 		daemon=True,
 	)
 	thread.start()
-	return port, thread
+	return port, thread 
