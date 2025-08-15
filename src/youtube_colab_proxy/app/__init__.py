@@ -71,19 +71,26 @@ def create_app() -> Flask:
 		if not q:
 			return jsonify({"items": []})
 		try:
+			# Use yt_dlp search to avoid httpx/proxies issues from youtubesearchpython
+			import yt_dlp
+			ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True, "noplaylist": True}
+			query = f"ytsearch{limit_int}:{q}"
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				info = ydl.extract_info(query, download=False)
+			entries = info.get("entries") or []
 			items = []
-			results = VideosSearch(q, limit=limit_int).result().get("result", [])
-			for v in results:
-				vid = v.get("id") or ""
-				title = v.get("title") or ""
-				dur = v.get("duration") or ""
-				ch = (v.get("channel") or {}).get("name") or ""
-				if not vid or not YOUTUBE_ID_RE.match(vid):
+			for e in entries:
+				vid = (e.get("id") or e.get("url") or "").strip()
+				title = (e.get("title") or "").strip()
+				# duration may be in seconds or string; we keep string if available
+				dur = e.get("duration") or e.get("duration_string") or ""
+				ch = (e.get("uploader") or e.get("channel") or "").strip()
+				if not (vid and YOUTUBE_ID_RE.match(vid)):
 					continue
 				items.append({
 					"id": vid,
 					"title": title,
-					"duration": dur,
+					"duration": dur if isinstance(dur, str) else (str(dur) if dur else ""),
 					"channel": ch,
 					"watchUrl": f"https://www.youtube.com/watch?v={vid}",
 					"stream": f"/stream?id={vid}",
