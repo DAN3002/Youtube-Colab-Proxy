@@ -11,11 +11,13 @@ def main() -> int:
 	parser.add_argument("--host", default="0.0.0.0", help="Listen host (default: 0.0.0.0)")
 	parser.add_argument("--port", type=int, default=None, help="Listen port (default: auto)")
 	parser.add_argument("--password", default=None, help="Password if ADMIN_PASSWORD_SHA256 is set")
+	parser.add_argument("--cookies", dest="cookie_file", default=None, help="Path to YouTube cookies.txt for yt-dlp")
+	parser.add_argument("--cookies-str", dest="cookies_str", default=None, help="Raw Cookie header string, e.g. 'A=1; B=2' (overrides file)")
 	args = parser.parse_args()
 
 	if args.serve:
 		from .core import start
-		url = start(host=args.host, port=args.port, password=args.password)
+		url = start(host=args.host, port=args.port, password=args.password, cookie_file=args.cookie_file, cookies_str=args.cookies_str)
 		print(f"Serving at {url}/")
 		return 0
 

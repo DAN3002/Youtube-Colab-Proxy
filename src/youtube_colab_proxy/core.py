@@ -2,10 +2,10 @@ from typing import Optional, Tuple
 
 from .app.server import start_flask_in_thread
 from .integrations.colab import get_public_proxy_url, display_app_link
-from .app import create_app
+from .app import create_app as _create_app
 
 
-def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[str] = None) -> str:
+def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[str] = None, cookie_file: Optional[str] = None, cookies_str: Optional[str] = None) -> str:
 	"""Start the YouTube Proxy web app and return its base URL.
 
 	On Colab, prints and displays a clickable link via output widget.
@@ -19,7 +19,11 @@ def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[
 		if hashlib.sha256(pwd).hexdigest() != _const.ADMIN_PASSWORD_SHA256:
 			raise PermissionError("Invalid password")
 
-	app = create_app()
+	app = _create_app(cookie_file=cookie_file)
+	# Pass cookie_file and cookies_str to resolver layer
+	from .services import resolver as _resolver
+	_resolver.set_cookie_file(cookie_file)
+	_resolver.set_cookies_str(cookies_str)
 	chosen_port, _ = start_flask_in_thread(app, host=host, port=port)
 
 	# Try Colab proxy; if unavailable, fallback to localhost

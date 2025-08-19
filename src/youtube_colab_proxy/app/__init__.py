@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import requests
 from flask import Flask, request, jsonify, Response, render_template
@@ -60,10 +60,12 @@ def _normalize_list_url(u: str) -> str:
 	return u
 
 
-def create_app() -> Flask:
+def create_app(cookie_file: Optional[str] = None) -> Flask:
 	"""Create Flask app with API and frontend routes."""
 	templates_dir = os.path.join(os.path.dirname(__file__), "templates")
 	app = Flask(__name__, template_folder=templates_dir, static_folder=os.path.join(os.path.dirname(__file__), "static"))
+	if cookie_file:
+		app.config["YDL_COOKIEFILE"] = cookie_file
 
 	@app.get("/")
 	def index():  # type: ignore
