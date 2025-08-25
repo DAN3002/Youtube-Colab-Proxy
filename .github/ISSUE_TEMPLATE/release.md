@@ -18,7 +18,7 @@ labels: release
 - ...
 
 ## ✅ Checklist
-- [ ] Bump version in package/app
+- [ ] Bump version in `pyproject.toml`
 - [ ] Ensure CI/CD pipeline passes
 - [ ] Create GitHub Tag & Release
 - [ ] Update related documentation (if needed)

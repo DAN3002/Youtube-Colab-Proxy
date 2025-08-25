@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "youtube-colab-proxy"
-version = "0.4.0"
-description = "A minimal Python package scaffold for Youtube-Colab-Proxy."
+version = "0.4.1"
+description = "A Python web application that provides a YouTube video streaming proxy with a built-in web player. Designed to work seamlessly in Google Colab environments while also supporting local development and deployment."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [
-	{ name = "Dan" }
+	{ name = "DAN3002" }
 ]
 classifiers = [
 	"Programming Language :: Python :: 3",
-	"License :: OSI Approved :: MIT License",
+	"License :: OSI Approved :: Apache 2.0 License",
 	"Operating System :: OS Independent",
 ]
 dependencies = [
