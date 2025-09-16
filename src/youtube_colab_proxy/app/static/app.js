@@ -297,38 +297,27 @@ const hidePlayer = () => {
 	$('#playerControls').style.display = 'none';
 };
 
-// Quality selection removed: always use 'best'
-
-const loadStreamInfo = async () => {
-	const url = $('#streamUrl').value.trim();
-	if (!url) {
-		setStreamStatus('Please enter a streaming URL');
-		return;
-	}
-	
-	setStreamStatus('Checking stream...');
-	
+const getPlatformTitle = (url) => {
 	try {
-		const response = await fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`);
-		const data = await response.json();
-		
-		if (!data.supported) {
-			setStreamStatus(data.error || 'Stream not supported or unavailable');
-			$('#streamQualitySelect').style.display = 'none';
-			return;
-		}
-		
-		if (data.supported) {
-			setStreamStatus(`Stream loaded: ${data.title} by ${data.author}`);
-		} else {
-			setStreamStatus('Stream unavailable');
-		}
-		
-	} catch (error) {
-		setStreamStatus(`Error: ${error.message}`);
-		$('#streamQualitySelect').style.display = 'none';
-	}
+		const u = new URL(url);
+		const h = u.hostname.toLowerCase();
+		if (h.includes('twitch')) return 'Twitch Stream';
+		if (h.includes('vimeo')) return 'Vimeo Stream';
+		if (h.includes('facebook')) return 'Facebook Stream';
+		if (h.includes('tiktok')) return 'TikTok Stream';
+		if (h.includes('kick')) return 'Kick Stream';
+		if (h.includes('afreecatv')) return 'AfreecaTV Stream';
+		if (h.includes('bilibili')) return 'Bilibili Stream';
+		if (h.includes('dailymotion')) return 'Dailymotion Stream';
+		if (h.includes('twitter') || h.includes('x.com')) return 'X Stream';
+		if (h.includes('instagram')) return 'Instagram Stream';
+		if (h.includes('youtube') || h.includes('youtu.be')) return 'YouTube Live';
+	} catch (e) {}
+	return 'Live Stream';
 };
+
+// Quality selection removed: always use 'best'
+// loadStreamInfo removed - now using direct play with error handling
 
 const playStreamlinkVideo = () => {
 	const url = $('#streamUrl').value.trim();
@@ -338,28 +327,31 @@ const playStreamlinkVideo = () => {
 		return;
 	}
 	
+	setStreamStatus('Loading stream...');
+	
 	currentMode = 'streamlink';
 	currentPlaylistIndex = -1;
 	updatePlayerControls();
 	clearListUI();
 	
-	// Get stream info for title display, then play via HLS manifest proxy
+	// Check if stream is supported first, then play
 	fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`)
 		.then(response => response.json())
 		.then(data => {
-			const title = data.supported ? data.title : 'Streaming Video';
-			const author = data.supported ? data.author : 'Unknown';
+			if (!data.supported) {
+				setStreamStatus(data.error || 'Stream not supported or unavailable');
+				return;
+			}
+			
+			const title = getPlatformTitle(url);
 			const manifest = `/streamlink/hls?url=${encodeURIComponent(url)}`;
-			setPlayer(manifest, title, author);
+			setPlayer(manifest, title, '');
 			setStreamStatus('Playing stream...');
 		})
 		.catch(error => {
-			const manifest = `/streamlink/hls?url=${encodeURIComponent(url)}`;
-			setPlayer(manifest, 'Streaming Video', 'Unknown');
-			setStreamStatus('Playing stream...');
+			setStreamStatus(`Error: ${error.message}`);
 		});
 };
 
-$('#btnStreamGo').addEventListener('click', loadStreamInfo);
 $('#btnPlayStream').addEventListener('click', playStreamlinkVideo);
-$('#streamUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadStreamInfo(); }); 
+$('#streamUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') playStreamlinkVideo(); }); 
