@@ -2,7 +2,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 // Global playback state
-let currentMode = 'search'; // 'search' | 'playlist' | 'video'
+let currentMode = 'search'; // 'search' | 'playlist' | 'video' | 'streamlink'
+let currentTab = 'youtube'; // 'youtube' | 'streamlink'
 let paging = { page: 1, totalPages: 1, hasMore: false };
 let pageSize = 8;
 let searchQuery = '';
@@ -69,7 +70,20 @@ const renderCards = (mountNode, items, {onClick} = {}) => {
 
 const setPlayer = (src, title, channel='') => {
 	const v = $('#player');
-	v.src = src;
+	const isHls = typeof src === 'string' && src.includes('.m3u8') || src.includes('/streamlink/hls');
+	
+	if (isHls && window.Hls && Hls.isSupported()) {
+		try {
+			if (v._hls) { v._hls.destroy(); v._hls = null; }
+			const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
+			hls.loadSource(src);
+			hls.attachMedia(v);
+			v._hls = hls;
+		} catch {}
+	} else {
+		if (v._hls) { try { v._hls.destroy(); } catch {} v._hls = null; }
+		v.src = src;
+	}
 	v.currentTime = 0;
 	v.play().catch(() => {});
 	$('#playerWrap').style.display = 'block';
@@ -251,4 +265,101 @@ $('#btnPrevPage').addEventListener('click', async () => {
 $('#btnNextPage').addEventListener('click', async () => {
 	if (currentMode === 'search' && (paging.hasMore || (paging.totalPages && paging.page < paging.totalPages))) { setStatus('Searching...'); await renderSearch(paging.page + 1); }
 	else if (currentMode === 'playlist' && paging.page < paging.totalPages) { setStatus(listType === 'channel' ? 'Loading channel...' : 'Loading playlist...'); await renderPlaylist(paging.page + 1); }
-}); 
+});
+
+// Tab switching functionality
+const switchTab = (tabName) => {
+	currentTab = tabName;
+	
+	// Update tab buttons
+	$$('.tab-btn').forEach(btn => btn.classList.remove('active'));
+	$(`#tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+	
+	// Update tab content
+	$$('.tab-content').forEach(content => content.classList.remove('active'));
+	$(`#${tabName}Tab`).classList.add('active');
+	
+	// Clear status and results when switching tabs
+	clearListUI();
+	setStatus('');
+	setStreamStatus('');
+	hidePlayer();
+};
+
+$('#tabYoutube').addEventListener('click', () => switchTab('youtube'));
+$('#tabStreamlink').addEventListener('click', () => switchTab('streamlink'));
+
+// Streamlink functionality
+const setStreamStatus = (text) => { $('#streamStatus').textContent = text || ''; };
+
+const hidePlayer = () => {
+	$('#playerWrap').style.display = 'none';
+	$('#playerControls').style.display = 'none';
+};
+
+// Quality selection removed: always use 'best'
+
+const loadStreamInfo = async () => {
+	const url = $('#streamUrl').value.trim();
+	if (!url) {
+		setStreamStatus('Please enter a streaming URL');
+		return;
+	}
+	
+	setStreamStatus('Checking stream...');
+	
+	try {
+		const response = await fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`);
+		const data = await response.json();
+		
+		if (!data.supported) {
+			setStreamStatus(data.error || 'Stream not supported or unavailable');
+			$('#streamQualitySelect').style.display = 'none';
+			return;
+		}
+		
+		if (data.supported) {
+			setStreamStatus(`Stream loaded: ${data.title} by ${data.author}`);
+		} else {
+			setStreamStatus('Stream unavailable');
+		}
+		
+	} catch (error) {
+		setStreamStatus(`Error: ${error.message}`);
+		$('#streamQualitySelect').style.display = 'none';
+	}
+};
+
+const playStreamlinkVideo = () => {
+	const url = $('#streamUrl').value.trim();
+	
+	if (!url) {
+		setStreamStatus('Please enter a streaming URL');
+		return;
+	}
+	
+	currentMode = 'streamlink';
+	currentPlaylistIndex = -1;
+	updatePlayerControls();
+	clearListUI();
+	
+	// Get stream info for title display, then play via HLS manifest proxy
+	fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`)
+		.then(response => response.json())
+		.then(data => {
+			const title = data.supported ? data.title : 'Streaming Video';
+			const author = data.supported ? data.author : 'Unknown';
+			const manifest = `/streamlink/hls?url=${encodeURIComponent(url)}`;
+			setPlayer(manifest, title, author);
+			setStreamStatus('Playing stream...');
+		})
+		.catch(error => {
+			const manifest = `/streamlink/hls?url=${encodeURIComponent(url)}`;
+			setPlayer(manifest, 'Streaming Video', 'Unknown');
+			setStreamStatus('Playing stream...');
+		});
+};
+
+$('#btnStreamGo').addEventListener('click', loadStreamInfo);
+$('#btnPlayStream').addEventListener('click', playStreamlinkVideo);
+$('#streamUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadStreamInfo(); }); 

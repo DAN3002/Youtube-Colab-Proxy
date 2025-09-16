@@ -5,7 +5,7 @@ from .integrations.colab import get_public_proxy_url, display_app_link
 from .app import create_app as _create_app
 
 
-def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[str] = None, cookie_file: Optional[str] = None, cookies_str: Optional[str] = None) -> str:
+def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[str] = None, cookie_file: Optional[str] = None, cookies_str: Optional[str] = None, cookies_from_browser: Optional[str] = None, cookies_browser_profile: Optional[str] = None) -> str:
 	"""Start the YouTube Proxy web app and return its base URL.
 
 	On Colab, prints and displays a clickable link via output widget.
@@ -24,6 +24,12 @@ def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[
 	from .services import resolver as _resolver
 	_resolver.set_cookie_file(cookie_file)
 	_resolver.set_cookies_str(cookies_str)
+	# New: pass cookies-from-browser preference
+	try:
+		_resolver.set_cookies_from_browser(cookies_from_browser, cookies_browser_profile)
+	except Exception:
+		# Non-fatal: continue without browser cookies
+		pass
 	chosen_port, _ = start_flask_in_thread(app, host=host, port=port)
 
 	# Try Colab proxy; if unavailable, fallback to localhost

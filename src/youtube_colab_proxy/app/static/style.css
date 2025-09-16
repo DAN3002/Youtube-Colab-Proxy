@@ -15,4 +15,36 @@ body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Robo
  button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3140; background: #1a2230; color: #eaeef2; cursor: pointer; }
  button:hover { background: #223044; }
  .player { width: 100%; max-width: 960px; margin: 8px auto 0; display: block; }
- .pill { background: #23304a; border-radius: 999px; padding: 2px 8px; font-size: 12px; } 
+ .pill { background: #23304a; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+
+/* New Tab Navigation Styles */
+.tab-btn {
+	padding: 12px 24px;
+	background: transparent;
+	border: none;
+	color: #8b949e;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	transition: all 0.2s ease;
+	border-radius: 0;
+}
+
+.tab-btn:hover {
+	color: #eaeef2;
+	background: rgba(130, 80, 223, 0.1);
+}
+
+.tab-btn.active {
+	color: #8250df;
+	border-bottom-color: #8250df;
+}
+
+.tab-content {
+	display: none;
+}
+
+.tab-content.active {
+	display: block;
+} 

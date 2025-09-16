@@ -1,16 +1,17 @@
 from typing import Dict, Any, Optional, Tuple
 
 import yt_dlp
+from yt_dlp.utils import DownloadError
 
 
-def _pick_progressive_mp4(info_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-	"""Pick the best progressive MP4 <=720p that has both audio and video."""
+def _pick_progressive_mp4(info_dict: Dict[str, Any], max_height: int = 720) -> Optional[Dict[str, Any]]:
+	"""Pick the best progressive MP4 <= max_height that has both audio and video."""
 	formats = info_dict.get("formats") or []
 	candidates = []
 	for fmt in formats:
 		if fmt.get("ext") == "mp4" and fmt.get("vcodec") != "none" and fmt.get("acodec") != "none":
 			height = fmt.get("height") or 0
-			if height <= 720:
+			if height <= max_height:
 				candidates.append((height, fmt))
 	if candidates:
 		candidates.sort(key=lambda x: x[0], reverse=True)
@@ -25,15 +26,25 @@ def extract_direct_media(youtube_url: str) -> Tuple[str, Dict[str, str]]:
 	MP4 format (<=720p) with both audio and video if necessary.
 	Raises RuntimeError if no suitable direct URL can be found.
 	"""
-	ydl_opts = {
+	ydl_opts_strict = {
 		"quiet": True,
 		"nocheckcertificate": True,
 		"format": "bestvideo[ext=mp4][height<=720][vcodec!=none]+bestaudio[acodec!=none]/best[ext=mp4][height<=720]",
 		"noplaylist": True,
 	}
 
-	with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-		info = ydl.extract_info(youtube_url, download=False)
+	try:
+		with yt_dlp.YoutubeDL(ydl_opts_strict) as ydl:
+			info = ydl.extract_info(youtube_url, download=False)
+	except DownloadError:
+		# Relax constraints if the requested strict format isn't available
+		ydl_opts_fallback = {
+			"quiet": True,
+			"nocheckcertificate": True,
+			"noplaylist": True,
+		}
+		with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
+			info = ydl.extract_info(youtube_url, download=False)
 
 	direct_url = info.get("url")
 	headers = info.get("http_headers") or {}
