@@ -343,6 +343,7 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 	def streamlink_hls():  # type: ignore
 		"""Return a rewritten HLS manifest for a given source URL, proxying all URIs."""
 		import requests as _rq
+		from urllib.parse import quote
 		source_url = (request.args.get("url") or "").strip()
 		if not source_url:
 			return Response("Missing url", status=400)
@@ -351,10 +352,10 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 			r = _rq.get(master, timeout=20)
 			if r.status_code != 200:
 				return Response(f"Upstream error {r.status_code}", status=502)
-			proxy_base = f"/streamlink/hls/segment?src={master}"
+			proxy_base = f"/streamlink/hls/segment?src={quote(master, safe='')}"
 			rewritten = rewrite_hls_manifest(r.text, master, proxy_base)
 			resp = Response(rewritten, status=200, mimetype="application/vnd.apple.mpegurl")
-			resp.headers["Cache-Control"] = "no-cache"
+			resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
 			return resp
 		except Exception as e:
 			return Response(f"HLS error: {e}", status=502)
@@ -363,8 +364,9 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 	def streamlink_hls_segment():  # type: ignore
 		"""Proxy HLS segments or variant playlists referenced by our rewritten manifest."""
 		import requests as _rq
-		src = (request.args.get("src") or "").strip()
-		u = (request.args.get("u") or "").strip()
+		from urllib.parse import unquote
+		src = unquote((request.args.get("src") or "").strip())
+		u = unquote((request.args.get("u") or "").strip())
 		if not (src and u):
 			return Response("Missing src/u", status=400)
 		try:
@@ -376,7 +378,7 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 				# Nested playlist: rewrite again
 				rewritten = rewrite_hls_manifest(r.text, u, f"/streamlink/hls/segment?src={src}")
 				resp = Response(rewritten, status=200, mimetype="application/vnd.apple.mpegurl")
-				resp.headers["Cache-Control"] = "no-cache"
+				resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
 				return resp
 			# Media segment or key
 			resp = Response(r.iter_content(chunk_size=1024 * 256), status=r.status_code)

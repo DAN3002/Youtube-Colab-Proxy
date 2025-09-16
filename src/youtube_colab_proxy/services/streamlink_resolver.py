@@ -3,7 +3,7 @@ import time
 import subprocess
 import json
 import re
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse, urljoin, quote
 
 import streamlink
 from streamlink.exceptions import PluginError, NoStreamsError
@@ -224,12 +224,21 @@ def rewrite_hls_manifest(manifest_text: str, manifest_url: str, proxy_base: str)
 	lines = manifest_text.splitlines()
 	out_lines: List[str] = []
 	for line in lines:
+		if line and line.startswith('#'):
+			# Rewrite URI attributes inside tag lines (e.g., EXT-X-KEY, EXT-X-MAP, EXT-X-MEDIA)
+			def _repl(m):
+				orig = m.group(1)
+				abs_url = urljoin(manifest_url, orig)
+				return f'URI="{proxy_base}&u={quote(abs_url, safe="")}"'
+			line = re.sub(r'URI="([^"]+)"', _repl, line)
+			out_lines.append(line)
+			continue
 		if not line or line.startswith('#'):
 			out_lines.append(line)
 			continue
 		# line is a URI (segment or variant playlist)
 		abs_url = urljoin(manifest_url, line)
 		# Route via proxy
-		proxied = f"{proxy_base}&u={abs_url}"
+		proxied = f"{proxy_base}&u={quote(abs_url, safe='')}"
 		out_lines.append(proxied)
 	return "\n".join(out_lines) + ("\n" if not manifest_text.endswith("\n") else "") 
