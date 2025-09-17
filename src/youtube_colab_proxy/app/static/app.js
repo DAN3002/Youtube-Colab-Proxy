@@ -361,13 +361,20 @@ const _secondsBufferedAhead = (video) => {
 
 const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 	const v = $('#player');
-	const minStartBuffer = Math.max(5, Math.min(30, delaySec));
+	// Lock native controls for watch-only experience
+	try {
+		v.controls = false;
+		v.setAttribute('controlsList', 'nodownload noplaybackrate noremoteplayback');
+		v.setAttribute('disablePictureInPicture', 'true');
+	} catch {}
+	
+	const minStartBuffer = Math.max(10, Math.min(90, delaySec));
 	showStreamLoading(`Buffering ~${minStartBuffer}s at ${delaySec}s behind live…`);
 	
 	// Overlay failsafe timer
 	let overlayTimer = null;
 	const clearOverlayTimer = () => { if (overlayTimer) { clearTimeout(overlayTimer); overlayTimer = null; } };
-	overlayTimer = setTimeout(() => hideStreamLoading(), 20000);
+	overlayTimer = setTimeout(() => hideStreamLoading(), 30000);
 	
 	// Destroy previous instance if any
 	if (v._hls) { try { v._hls.destroy(); } catch {} v._hls = null; }
@@ -386,13 +393,53 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 	v.addEventListener('canplay', onCanPlay);
 	v._overlayHandlers = { playing: onPlaying, canplay: onCanPlay };
 	
+	// Remove previous lock handlers if any
+	if (v._lockHandlers) {
+		try {
+			v.removeEventListener('pause', v._lockHandlers.pause);
+			v.removeEventListener('seeking', v._lockHandlers.seeking);
+			v.removeEventListener('timeupdate', v._lockHandlers.timeupdate);
+			document.removeEventListener('keydown', v._lockHandlers.keydown, true);
+		} catch {}
+	}
+	let lastOkTime = 0;
+	const onTimeUpdate = () => { lastOkTime = v.currentTime || lastOkTime; };
+	const onPause = () => { v.play().catch(() => {}); };
+	const onSeeking = (e) => {
+		// Disallow all seeking; snap back to last ok time
+		if (Number.isFinite(lastOkTime)) {
+			try { v.currentTime = lastOkTime; } catch {}
+		}
+		if (e && typeof e.preventDefault === 'function') e.preventDefault();
+	};
+	const onKeyDown = (e) => {
+		// Block common media keys during streamlink playback
+		if (currentMode === 'streamlink') {
+			const blocked = [' ', 'k', 'K', 'j', 'J', 'l', 'L', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+			if (blocked.includes(e.key)) {
+				e.stopPropagation();
+				e.preventDefault();
+			}
+		}
+	};
+	v.addEventListener('timeupdate', onTimeUpdate);
+	v.addEventListener('pause', onPause);
+	v.addEventListener('seeking', onSeeking);
+	document.addEventListener('keydown', onKeyDown, true);
+	v._lockHandlers = { timeupdate: onTimeUpdate, pause: onPause, seeking: onSeeking, keydown: onKeyDown };
+	
 	const hls = new Hls({
 		lowLatencyMode: false,
 		enableWorker: true,
+		// Keep a stable delayed position
 		liveSyncDuration: delaySec,
 		liveMaxLatencyDuration: delaySec + 10,
-		maxBufferLength: Math.max(90, delaySec + 60),
-		liveBackBufferLength: 600,
+		// Buffer more ahead for smoother playback
+		maxBufferLength: Math.max(120, delaySec + 90),
+		maxBufferHole: 0.2,
+		maxBufferSize: 80 * 1000 * 1000,
+		liveBackBufferLength: 900,
+		startPosition: -1,
 	});
 	let started = false;
 	let seekedToDelay = false;
@@ -429,6 +476,7 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 				if (!seekedToDelay && typeof livePos === 'number' && isFinite(livePos)) {
 					v.currentTime = Math.max(0, livePos);
 					seekedToDelay = true;
+					lastOkTime = v.currentTime;
 				}
 			}
 		} catch {}
