@@ -364,8 +364,27 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 	const minStartBuffer = Math.max(5, Math.min(30, delaySec));
 	showStreamLoading(`Buffering ~${minStartBuffer}s at ${delaySec}s behind live…`);
 	
+	// Overlay failsafe timer
+	let overlayTimer = null;
+	const clearOverlayTimer = () => { if (overlayTimer) { clearTimeout(overlayTimer); overlayTimer = null; } };
+	overlayTimer = setTimeout(() => hideStreamLoading(), 20000);
+	
 	// Destroy previous instance if any
 	if (v._hls) { try { v._hls.destroy(); } catch {} v._hls = null; }
+	
+	// Remove previous overlay event handlers if any
+	if (v._overlayHandlers) {
+		try {
+			v.removeEventListener('playing', v._overlayHandlers.playing);
+			v.removeEventListener('canplay', v._overlayHandlers.canplay);
+		} catch {}
+	}
+	
+	const onPlaying = () => { hideStreamLoading(); clearOverlayTimer(); };
+	const onCanPlay = () => { hideStreamLoading(); };
+	v.addEventListener('playing', onPlaying);
+	v.addEventListener('canplay', onCanPlay);
+	v._overlayHandlers = { playing: onPlaying, canplay: onCanPlay };
 	
 	const hls = new Hls({
 		lowLatencyMode: false,
@@ -398,6 +417,7 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 	hls.on(Hls.Events.ERROR, function(event, data) {
 		if (data && data.fatal) {
 			hideStreamLoading();
+			clearOverlayTimer();
 			setStreamStatus('Streaming error. Please try again.');
 		}
 	});
@@ -420,6 +440,7 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 		if (ahead >= minStartBuffer) {
 			started = true;
 			hideStreamLoading();
+			clearOverlayTimer();
 			v.play().catch(() => {});
 		}
 	};
