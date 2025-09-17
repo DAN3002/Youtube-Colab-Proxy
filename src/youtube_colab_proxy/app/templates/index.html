@@ -30,6 +30,7 @@
 			<div id="streamlinkTab" class="tab-content">
 				<div class="row">
 					<input id="streamUrl" type="text" placeholder="Paste a streaming link (Twitch, Vimeo, Facebook, TikTok, Kick...)" />
+					<input id="delaySeconds" type="number" min="0" value="30" style="width:110px;" placeholder="Delay (sec)" />
 					<button id="btnPlayStream">Play</button>
 				</div>
 				<div class="muted" style="margin-top:6px;">
@@ -67,6 +68,14 @@
 				<div style="font-weight:700; margin-bottom:8px;">Notice</div>
 				<div id="modalMsg" class="muted" style="white-space:pre-wrap;"></div>
 				<div style="margin-top:12px; text-align:right;"><button id="modalClose">Close</button></div>
+			</div>
+		</div>
+
+		<!-- Streaming loading overlay -->
+		<div id="streamLoading" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999;">
+			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:420px; width:calc(100% - 32px); color:#eaeef2; text-align:center;">
+				<div style="font-weight:700; margin-bottom:8px;">Preparing stream…</div>
+				<div id="streamLoadingMsg" class="muted">Buffering initial delay window…</div>
 			</div>
 		</div>
 

@@ -292,6 +292,125 @@ $('#tabStreamlink').addEventListener('click', () => switchTab('streamlink'));
 // Streamlink functionality
 const setStreamStatus = (text) => { $('#streamStatus').textContent = text || ''; };
 
+// Delay & overlay helpers for Stream tab
+const getDelaySeconds = () => {
+	const el = $('#delaySeconds');
+	const raw = el ? parseInt(el.value, 10) : 30;
+	const v = Number.isNaN(raw) ? 30 : raw;
+	return Math.max(0, Math.min(600, v));
+};
+
+const showStreamLoading = (msg) => {
+	const o = $('#streamLoading');
+	if (!o) return;
+	o.style.display = 'flex';
+	const m = $('#streamLoadingMsg');
+	if (m) m.textContent = msg || 'Buffering…';
+};
+
+const hideStreamLoading = () => {
+	const o = $('#streamLoading');
+	if (o) o.style.display = 'none';
+};
+
+const _secondsBufferedAhead = (video) => {
+	const t = video.currentTime;
+	const ranges = video.buffered;
+	for (let i = 0; i < ranges.length; i++) {
+		const start = ranges.start(i);
+		const end = ranges.end(i);
+		if (t >= start && t <= end) return Math.max(0, end - t);
+	}
+	return 0;
+};
+
+const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
+	const v = $('#player');
+	const minStartBuffer = Math.max(5, Math.min(30, delaySec));
+	showStreamLoading(`Buffering ~${minStartBuffer}s at ${delaySec}s behind live…`);
+	
+	// Destroy previous instance if any
+	if (v._hls) { try { v._hls.destroy(); } catch {} v._hls = null; }
+	
+	const hls = new Hls({
+		lowLatencyMode: false,
+		enableWorker: true,
+		liveSyncDuration: delaySec,
+		liveMaxLatencyDuration: delaySec + 10,
+		maxBufferLength: Math.max(90, delaySec + 60),
+		liveBackBufferLength: 600,
+	});
+	let started = false;
+	let seekedToDelay = false;
+	let guardHandlersBound = false;
+	
+	const clampForward = (e) => {
+		try {
+			let allowedMax = null;
+			if (typeof hls.liveSyncPosition === 'number') {
+				allowedMax = hls.liveSyncPosition;
+			} else {
+				const br = v.buffered; 
+				if (br && br.length) allowedMax = br.end(br.length - 1) - 2;
+			}
+			if (allowedMax != null && v.currentTime > allowedMax) {
+				v.currentTime = allowedMax;
+				if (e && typeof e.preventDefault === 'function') e.preventDefault();
+			}
+		} catch {}
+	};
+	
+	hls.on(Hls.Events.ERROR, function(event, data) {
+		if (data && data.fatal) {
+			hideStreamLoading();
+			setStreamStatus('Streaming error. Please try again.');
+		}
+	});
+	
+	hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
+		try {
+			if (data && data.details && data.details.live) {
+				const livePos = (typeof hls.liveSyncPosition === 'number') ? hls.liveSyncPosition : (data.details.edge - delaySec);
+				if (!seekedToDelay && typeof livePos === 'number' && isFinite(livePos)) {
+					v.currentTime = Math.max(0, livePos);
+					seekedToDelay = true;
+				}
+			}
+		} catch {}
+	});
+	
+	const checkStart = () => {
+		if (started) return;
+		const ahead = _secondsBufferedAhead(v);
+		if (ahead >= minStartBuffer) {
+			started = true;
+			hideStreamLoading();
+			v.play().catch(() => {});
+		}
+	};
+	
+	hls.on(Hls.Events.BUFFER_APPENDED, checkStart);
+	hls.on(Hls.Events.FRAG_BUFFERED, checkStart);
+	
+	hls.loadSource(src);
+	hls.attachMedia(v);
+	v._hls = hls;
+	v.pause();
+	
+	// Bind guard once
+	if (!guardHandlersBound) {
+		v.addEventListener('seeking', clampForward);
+		v.addEventListener('timeupdate', clampForward);
+		guardHandlersBound = true;
+	}
+	
+	// Update UI
+	$('#playerWrap').style.display = 'block';
+	$('#nowPlaying').textContent = title || '';
+	$('#nowChannel').textContent = channel || '';
+	$('#openStream').href = src;
+};
+
 const hidePlayer = () => {
 	$('#playerWrap').style.display = 'none';
 	$('#playerControls').style.display = 'none';
@@ -334,6 +453,8 @@ const playStreamlinkVideo = () => {
 	updatePlayerControls();
 	clearListUI();
 	
+	const delaySec = getDelaySeconds();
+	
 	// Check if stream is supported first, then play
 	fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`)
 		.then(response => response.json())
@@ -345,8 +466,13 @@ const playStreamlinkVideo = () => {
 			
 			const title = getPlatformTitle(url);
 			const manifest = `/streamlink/hls?url=${encodeURIComponent(url)}`;
-			setPlayer(manifest, title, '');
-			setStreamStatus('Playing stream...');
+			if (delaySec > 0) {
+				setDelayedHlsPlayer(manifest, title, '', delaySec);
+				setStreamStatus(`Playing stream (delayed ${delaySec}s)...`);
+			} else {
+				setPlayer(manifest, title, '');
+				setStreamStatus('Playing stream...');
+			}
 		})
 		.catch(error => {
 			setStreamStatus(`Error: ${error.message}`);
