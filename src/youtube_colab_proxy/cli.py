@@ -13,11 +13,13 @@ def main() -> int:
 	parser.add_argument("--password", default=None, help="Password if ADMIN_PASSWORD_SHA256 is set")
 	parser.add_argument("--cookies", dest="cookie_file", default=None, help="Path to YouTube cookies.txt for yt-dlp")
 	parser.add_argument("--cookies-str", dest="cookies_str", default=None, help="Raw Cookie header string, e.g. 'A=1; B=2' (overrides file)")
+	parser.add_argument("--cookies-from-browser", dest="cookies_from_browser", default=None, choices=["chrome", "chromium", "edge", "brave", "vivaldi", "opera"], help="Import cookies from a local browser (uses yt-dlp cookiesfrombrowser)")
+	parser.add_argument("--cookies-browser-profile", dest="cookies_browser_profile", default=None, help="Browser profile name/directory for cookiesfrombrowser")
 	args = parser.parse_args()
 
 	if args.serve:
 		from .core import start
-		url = start(host=args.host, port=args.port, password=args.password, cookie_file=args.cookie_file, cookies_str=args.cookies_str)
+		url = start(host=args.host, port=args.port, password=args.password, cookie_file=args.cookie_file, cookies_str=args.cookies_str, cookies_from_browser=args.cookies_from_browser, cookies_browser_profile=args.cookies_browser_profile)
 		print(f"Serving at {url}/")
 		return 0
 

@@ -11,11 +11,32 @@
 		<div class="wrap">
 			<h1 style="margin: 8px 0 0; font-weight: 700;">YouTube Proxy Player</h1>
 
-			<div class="row">
-				<input id="q" type="text" placeholder="Paste YouTube link or type keywords" />
-				<button id="btnGo">Go</button>
+			<!-- Tab Navigation -->
+			<div class="tabs" style="margin: 16px 0;">
+				<button id="tabYoutube" class="tab-btn active">YouTube</button>
+				<button id="tabStreamlink" class="tab-btn">Stream Link</button>
 			</div>
-			<div id="status" class="muted" style="margin-top:8px;"></div>
+
+			<!-- YouTube Tab Content -->
+			<div id="youtubeTab" class="tab-content active">
+				<div class="row">
+					<input id="q" type="text" placeholder="Paste YouTube link or type keywords" />
+					<button id="btnGo">Go</button>
+				</div>
+				<div id="status" class="muted" style="margin-top:8px;"></div>
+			</div>
+
+			<!-- Streamlink Tab Content -->
+			<div id="streamlinkTab" class="tab-content">
+				<div class="row">
+					<input id="streamUrl" type="text" placeholder="Paste a streaming link (Twitch, Vimeo, Facebook, TikTok, Kick...)" />
+					<button id="btnPlayStream">Play</button>
+				</div>
+				<div class="muted" style="margin-top:6px;">
+					Supported: Twitch, Vimeo, Facebook, TikTok, Kick, AfreecaTV, Bilibili, Dailymotion, X (Twitter), Instagram.
+				</div>
+				<div id="streamStatus" class="muted" style="margin-top:8px;"></div>
+			</div>
 
 			<div id="results" class="grid" style="margin-top: 14px;"></div>
 			<div id="pager" class="row" style="margin-top: 8px; display:none;">
@@ -49,6 +70,7 @@
 			</div>
 		</div>
 
+		<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>
 		<script src="/static/app.js"></script>
 	</body>
 </html> 

@@ -7,6 +7,11 @@ from youtubesearchpython import VideosSearch
 
 from ..utils.input import normalize_youtube_url, YOUTUBE_ID_RE
 from ..services.resolver import resolve_direct_media
+from ..services.streamlink_resolver import (
+	get_supported_sites, is_supported_url, get_stream_info,
+	resolve_stream_url, get_stream_thumbnail,
+	get_best_hls_url, rewrite_hls_manifest
+)
 
 
 THUMB_HEADERS = {
@@ -240,5 +245,150 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 			if h in r.headers:
 				resp.headers[h] = r.headers[h]
 		return resp
+
+	@app.get("/api/streamlink/sites")
+	def api_streamlink_sites():  # type: ignore
+		"""Get list of supported streaming sites."""
+		try:
+			sites = get_supported_sites()
+			return jsonify({"sites": sites})
+		except Exception as e:
+			return jsonify({"error": str(e)}), 500
+
+	@app.get("/api/streamlink/check")
+	def api_streamlink_check():  # type: ignore
+		"""Check if URL is supported by streamlink."""
+		url = (request.args.get("url") or "").strip()
+		if not url:
+			return jsonify({"supported": False, "error": "Missing url parameter"}), 400
+		
+		try:
+			supported = is_supported_url(url)
+			return jsonify({"url": url, "supported": supported})
+		except Exception as e:
+			return jsonify({"url": url, "supported": False, "error": str(e)})
+
+	@app.get("/api/streamlink/info")
+	def api_streamlink_info():  # type: ignore
+		"""Get stream information and available qualities."""
+		url = (request.args.get("url") or "").strip()
+		if not url:
+			return jsonify({"error": "Missing url parameter"}), 400
+		
+		try:
+			info = get_stream_info(url)
+			return jsonify(info)
+		except Exception as e:
+			return jsonify({"error": str(e)}), 500
+
+	@app.get("/streamlink")
+	def streamlink_stream():  # type: ignore
+		"""Stream content via streamlink."""
+		import streamlink
+		
+		url = (request.args.get("url") or "").strip()
+		quality = (request.args.get("quality") or "best").strip()
+		
+		if not url:
+			return Response("Missing url parameter", status=400)
+		
+		try:
+			# Get streams from streamlink
+			session = streamlink.Streamlink()
+			streams = session.streams(url)
+			
+			if not streams:
+				return Response("No streams found for this URL", status=404)
+			
+			# Get the requested quality or fall back to best
+			stream = streams.get(quality) or streams.get('best')
+			if not stream:
+				# Try to find any available stream
+				stream = next(iter(streams.values()))
+			
+			if not stream:
+				return Response("No suitable stream found", status=404)
+			
+			# Open the stream
+			stream_fd = stream.open()
+			
+			def generate():
+				try:
+					while True:
+						data = stream_fd.read(1024 * 1024)  # Read 1MB chunks
+						if not data:
+							break
+						yield data
+				finally:
+					stream_fd.close()
+			
+			# Determine content type
+			content_type = "video/mp4"  # Default
+			if hasattr(stream, 'container') and stream.container:
+				if stream.container == 'hls':
+					content_type = "application/vnd.apple.mpegurl"
+				elif stream.container in ['mp4', 'webm', 'flv']:
+					content_type = f"video/{stream.container}"
+			
+			resp = Response(generate(), mimetype=content_type)
+			resp.headers["Cache-Control"] = "no-cache"
+			resp.headers["Accept-Ranges"] = "bytes"
+			
+			return resp
+			
+		except Exception as e:
+			return Response(f"Streamlink error: {e}", status=502)
+
+	@app.get("/streamlink/hls")
+	def streamlink_hls():  # type: ignore
+		"""Return a rewritten HLS manifest for a given source URL, proxying all URIs."""
+		import requests as _rq
+		from urllib.parse import quote
+		source_url = (request.args.get("url") or "").strip()
+		if not source_url:
+			return Response("Missing url", status=400)
+		try:
+			master = get_best_hls_url(source_url)
+			r = _rq.get(master, timeout=20)
+			if r.status_code != 200:
+				return Response(f"Upstream error {r.status_code}", status=502)
+			proxy_base = f"/streamlink/hls/segment?src={quote(master, safe='')}"
+			rewritten = rewrite_hls_manifest(r.text, master, proxy_base)
+			resp = Response(rewritten, status=200, mimetype="application/vnd.apple.mpegurl")
+			resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+			return resp
+		except Exception as e:
+			return Response(f"HLS error: {e}", status=502)
+
+	@app.get("/streamlink/hls/segment")
+	def streamlink_hls_segment():  # type: ignore
+		"""Proxy HLS segments or variant playlists referenced by our rewritten manifest."""
+		import requests as _rq
+		from urllib.parse import unquote
+		src = unquote((request.args.get("src") or "").strip())
+		u = unquote((request.args.get("u") or "").strip())
+		if not (src and u):
+			return Response("Missing src/u", status=400)
+		try:
+			# Fetch the target resource
+			r = _rq.get(u, timeout=20, stream=True)
+			ct = r.headers.get("Content-Type")
+			# Distinguish manifest vs media
+			if ct and "mpegurl" in ct:
+				# Nested playlist: rewrite again
+				rewritten = rewrite_hls_manifest(r.text, u, f"/streamlink/hls/segment?src={src}")
+				resp = Response(rewritten, status=200, mimetype="application/vnd.apple.mpegurl")
+				resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+				return resp
+			# Media segment or key
+			resp = Response(r.iter_content(chunk_size=1024 * 256), status=r.status_code)
+			if ct:
+				resp.headers["Content-Type"] = ct
+			for h in ["Content-Length", "Content-Range", "Accept-Ranges", "Cache-Control"]:
+				if h in r.headers:
+					resp.headers[h] = r.headers[h]
+			return resp
+		except Exception as e:
+			return Response(f"Segment error: {e}", status=502)
 
 	return app 
