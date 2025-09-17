@@ -47,4 +47,19 @@ body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Robo
 
 .tab-content.active {
 	display: block;
-} 
+}
+
+.icon-btn {
+	padding: 8px;
+	border-radius: 10px;
+	border: 1px solid #2a3140;
+	background: #1a2230;
+	color: #eaeef2;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+}
+.icon-btn:hover { background: #223044; } 

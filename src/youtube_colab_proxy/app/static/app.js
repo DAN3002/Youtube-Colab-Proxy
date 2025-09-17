@@ -292,12 +292,47 @@ $('#tabStreamlink').addEventListener('click', () => switchTab('streamlink'));
 // Streamlink functionality
 const setStreamStatus = (text) => { $('#streamStatus').textContent = text || ''; };
 
+// Stream settings persistence
+const SETTINGS_KEY = 'ycp_stream_settings_v1';
+const loadSettings = () => {
+	try {
+		const raw = localStorage.getItem(SETTINGS_KEY);
+		if (!raw) return { delay: 30 };
+		const j = JSON.parse(raw);
+		const d = Number.isFinite(j.delay) ? j.delay : 30;
+		return { delay: Math.max(0, Math.min(600, d)) };
+	} catch { return { delay: 30 }; }
+};
+const saveSettings = (s) => {
+	try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s || { delay: 30 })); } catch {}
+};
+
+// Settings modal controls
+const openSettings = () => {
+	const s = loadSettings();
+	const el = $('#settingsDelay');
+	if (el) el.value = String(s.delay);
+	const m = $('#settingsModal');
+	if (m) m.style.display = 'flex';
+};
+const closeSettings = () => { const m = $('#settingsModal'); if (m) m.style.display = 'none'; };
+$('#btnStreamSettings')?.addEventListener('click', openSettings);
+$('#settingsCancel')?.addEventListener('click', closeSettings);
+$('#settingsSave')?.addEventListener('click', () => {
+	const el = $('#settingsDelay');
+	let v = 30;
+	if (el) {
+		const raw = parseInt(el.value, 10);
+		v = Number.isNaN(raw) ? 30 : raw;
+	}
+	saveSettings({ delay: Math.max(0, Math.min(600, v)) });
+	closeSettings();
+});
+
 // Delay & overlay helpers for Stream tab
 const getDelaySeconds = () => {
-	const el = $('#delaySeconds');
-	const raw = el ? parseInt(el.value, 10) : 30;
-	const v = Number.isNaN(raw) ? 30 : raw;
-	return Math.max(0, Math.min(600, v));
+	const s = loadSettings();
+	return Math.max(0, Math.min(600, Number(s.delay || 30)));
 };
 
 const showStreamLoading = (msg) => {

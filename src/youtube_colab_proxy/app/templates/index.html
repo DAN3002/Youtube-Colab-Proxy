@@ -6,6 +6,7 @@
 		<title>YouTube Proxy Player</title>
 		<link rel="stylesheet" href="https://unpkg.com/@mantine/core@7.17.8/styles.css" />
 		<link rel="stylesheet" href="/static/style.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 	</head>
 	<body>
 		<div class="wrap">
@@ -30,8 +31,10 @@
 			<div id="streamlinkTab" class="tab-content">
 				<div class="row">
 					<input id="streamUrl" type="text" placeholder="Paste a streaming link (Twitch, Vimeo, Facebook, TikTok, Kick...)" />
-					<input id="delaySeconds" type="number" min="0" value="30" style="width:110px;" placeholder="Delay (sec)" />
 					<button id="btnPlayStream">Play</button>
+					<button id="btnStreamSettings" class="icon-btn" title="Settings" aria-label="Settings">
+						<i class="fa-solid fa-gear" aria-hidden="true"></i>
+					</button>
 				</div>
 				<div class="muted" style="margin-top:6px;">
 					Supported: Twitch, Vimeo, Facebook, TikTok, Kick, AfreecaTV, Bilibili, Dailymotion, X (Twitter), Instagram.
@@ -76,6 +79,21 @@
 			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:420px; width:calc(100% - 32px); color:#eaeef2; text-align:center;">
 				<div style="font-weight:700; margin-bottom:8px;">Preparing stream…</div>
 				<div id="streamLoadingMsg" class="muted">Buffering initial delay window…</div>
+			</div>
+		</div>
+
+		<!-- Stream settings modal -->
+		<div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5); z-index:10000;">
+			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:420px; width:calc(100% - 32px); color:#eaeef2;">
+				<div style="font-weight:700; margin-bottom:8px;">Stream Settings</div>
+				<div class="muted" style="margin-bottom:8px;">Configure playback delay (seconds)</div>
+				<div class="row" style="margin-bottom:12px;">
+					<input id="settingsDelay" type="number" min="0" value="30" style="width:140px;" placeholder="Delay (sec)" />
+				</div>
+				<div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+					<button id="settingsCancel">Cancel</button>
+					<button id="settingsSave">Save</button>
+				</div>
 			</div>
 		</div>
 
