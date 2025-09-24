@@ -74,7 +74,8 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 
 	@app.get("/")
 	def index():  # type: ignore
-		return render_template("index.html")
+		from .. import const as _const
+		return render_template("index.html", FAQ_URL=_const.FAQ_URL)
 
 	@app.get("/api/version")
 	def api_version():  # type: ignore

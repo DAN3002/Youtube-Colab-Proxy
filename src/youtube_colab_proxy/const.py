@@ -7,3 +7,6 @@ YT_GEO_BYPASS_COUNTRY = "VN"
 
 # Optional outbound proxy (e.g., 'http://user:pass@vn-proxy:port')
 OUTBOUND_PROXY = "" 
+
+# FAQ & Troubleshooting URL
+FAQ_URL = "https://github.com/DAN3002/Youtube-Colab-Proxy/blob/main/FAQ.md"
