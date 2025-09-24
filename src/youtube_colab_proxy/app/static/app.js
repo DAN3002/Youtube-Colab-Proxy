@@ -10,6 +10,7 @@ let searchQuery = '';
 let playlistUrl = '';
 let currentPlaylistIndex = -1; // global index across playlist
 let listType = 'playlist'; // 'playlist' | 'channel'
+let currentListSource = null; // 'search' | 'playlist' | null
 
 const updatePlayerControls = () => {
 	$('#playerControls').style.display = currentPlaylistIndex >= 0 ? 'flex' : 'none';
@@ -251,16 +252,19 @@ const renderSearch = async (page) => {
 		}
 		pageSize = j.pageSize || pageSize;
 		paging = { page: j.page || 1, totalPages: j.totalPages || (j.hasMore ? (j.page + 1) : 1), hasMore: !!j.hasMore };
-		renderCards($('#results'), (j.items || []), {
-			onClick: ({ id, title, el }) => {
-				currentMode = 'video';
-				currentPlaylistIndex = -1;
-				updatePlayerControls();
-				setStatus('Playing video');
-				const channel = el.querySelector('.muted')?.textContent || '';
-				playById(id, title, channel);
-			}
-		});
+        renderCards($('#results'), (j.items || []), {
+            onClick: ({ id, title, el, idx }) => {
+                // treat search as a list with global index
+                const globalIdx = (paging.page - 1) * pageSize + idx;
+                currentListSource = 'search';
+                currentPlaylistIndex = globalIdx;
+                currentMode = 'search';
+                updatePlayerControls();
+                setStatus('Playing from search');
+                const channel = el.querySelector('.muted')?.textContent || '';
+                playById(id, title, channel);
+            }
+        });
 		setStatus(`Search results (page ${paging.page}${paging.totalPages ? `/${paging.totalPages}` : ''})`);
 		updatePager();
 	} catch (e) {
@@ -279,12 +283,13 @@ const renderPlaylist = async (page) => {
 		}
 		pageSize = j.pageSize || pageSize;
 		paging = { page: j.page || 1, totalPages: j.totalPages || 1, hasMore: (j.page || 1) < (j.totalPages || 1) };
-		renderCards($('#results'), (j.items || []), {
-			onClick: ({ idx }) => {
-				const globalIdx = (paging.page - 1) * pageSize + idx;
-				playPlaylistIndex(globalIdx);
-			}
-		});
+        renderCards($('#results'), (j.items || []), {
+            onClick: ({ idx }) => {
+                const globalIdx = (paging.page - 1) * pageSize + idx;
+                currentListSource = 'playlist';
+                playPlaylistIndex(globalIdx);
+            }
+        });
 		// highlight playing item if visible
 		Array.from($('#results').querySelectorAll('.card')).forEach((el, i) => {
 			const gi = (paging.page - 1) * pageSize + i;
@@ -313,38 +318,58 @@ const updatePager = () => {
 
 // Playlist playback helpers
 const playPlaylistIndex = async (globalIdx) => {
-	if (!playlistUrl) return;
-	const total = (paging.totalPages || 1) * pageSize; // approximate, good enough to page next/prev
-	if (globalIdx < 0) return;
-	currentPlaylistIndex = globalIdx;
-	updatePlayerControls();
-	const page = Math.floor(globalIdx / pageSize) + 1;
-	if (page !== paging.page || currentMode !== 'playlist') {
-		currentMode = 'playlist';
-		await renderPlaylist(page);
-	}
-	const localIdx = globalIdx % pageSize;
-	const item = $('#results').querySelectorAll('.card')[localIdx];
-	if (item) {
-		const id = item.getAttribute('data-id');
-		const title = decodeURIComponent(item.getAttribute('data-title') || '');
-		const channel = item.querySelector('.muted')?.textContent || '';
-		setStatus('Playing from playlist');
-		playById(id, title, channel);
-	}
-	Array.from($('#results').querySelectorAll('.card')).forEach((el, i) => {
-		const gi = (paging.page - 1) * pageSize + i;
-		if (gi === currentPlaylistIndex) el.classList.add('active'); else el.classList.remove('active');
-	});
+    if (globalIdx < 0) return;
+    currentPlaylistIndex = globalIdx;
+    updatePlayerControls();
+    const page = Math.floor(globalIdx / pageSize) + 1;
+    if (currentListSource === 'playlist') {
+        if (!playlistUrl) return;
+        if (page !== paging.page || currentMode !== 'playlist') {
+            currentMode = 'playlist';
+            await renderPlaylist(page);
+        }
+    } else if (currentListSource === 'search') {
+        if (!searchQuery) return;
+        if (page !== paging.page || currentMode !== 'search') {
+            currentMode = 'search';
+            await renderSearch(page);
+        }
+    } else {
+        return; // not in a list
+    }
+    const localIdx = globalIdx % pageSize;
+    const item = $('#results').querySelectorAll('.card')[localIdx];
+    if (item) {
+        const id = item.getAttribute('data-id');
+        const title = decodeURIComponent(item.getAttribute('data-title') || '');
+        const channel = item.querySelector('.muted')?.textContent || '';
+        setStatus(currentListSource === 'playlist' ? 'Playing from playlist' : 'Playing from search');
+        playById(id, title, channel);
+    }
+    Array.from($('#results').querySelectorAll('.card')).forEach((el, i) => {
+        const gi = (paging.page - 1) * pageSize + i;
+        if (gi === currentPlaylistIndex) el.classList.add('active'); else el.classList.remove('active');
+    });
 };
 
 const nextInPlaylist = async () => {
-	if (currentPlaylistIndex < 0) return;
-	await playPlaylistIndex(currentPlaylistIndex + 1);
+    if (currentPlaylistIndex < 0) return;
+    const nextIdx = currentPlaylistIndex + 1;
+    // If advancing beyond current page and we don't have more pages in search, stop
+    if (currentListSource === 'search') {
+        const isLastOnPage = (currentPlaylistIndex % pageSize) === (pageSize - 1);
+        if (isLastOnPage) {
+            // only advance if has more pages
+            if (!(paging.hasMore || (paging.totalPages && paging.page < paging.totalPages))) {
+                return; // no more
+            }
+        }
+    }
+    await playPlaylistIndex(nextIdx);
 };
 const prevInPlaylist = async () => {
-	if (currentPlaylistIndex <= 0) return;
-	await playPlaylistIndex(currentPlaylistIndex - 1);
+    if (currentPlaylistIndex <= 0) return;
+    await playPlaylistIndex(currentPlaylistIndex - 1);
 };
 $('#btnPrev').addEventListener('click', prevInPlaylist);
 $('#btnNext').addEventListener('click', nextInPlaylist);
@@ -358,7 +383,7 @@ $('#player').addEventListener('ended', () => {
 		return; // stop
 	}
 
-	if (currentPlaylistIndex >= 0) {
+	if (currentPlaylistIndex >= 0 && (currentListSource === 'search' || currentListSource === 'playlist')) {
 		if (onEnd === 'loop') {
 			try { const v = $('#player'); v.currentTime = 0; v.play().catch(() => {}); } catch {}
 			return;
@@ -372,15 +397,7 @@ $('#player').addEventListener('ended', () => {
 		return;
 	}
 
-	if (onEnd === 'next' && currentMode === 'video') {
-		if (!searchQuery) return;
-		setStatus('Auto-playing next search result');
-		renderSearch(1).then(() => {
-			const cards = $('#results')?.querySelectorAll('.card');
-			if (cards && cards.length >= 2) cards[1].click();
-		}).catch(() => {});
-		return;
-	}
+	if (onEnd === 'next' && currentListSource === 'search') { nextInPlaylist(); return; }
 
 	// default: stop
 });
@@ -411,12 +428,13 @@ const isChannelUrl = (s) => /youtube\.com\/(channel\/|@|c\/|user\/)/i.test(s);
 const go = async () => {
 	const s = $('#q').value.trim();
 	if (!s) return;
-	if (isYouTubeUrl(s)) {
+    if (isYouTubeUrl(s)) {
 		if (isPlaylistUrl(s) || isChannelUrl(s)) {
 			currentMode = 'playlist';
 			playlistUrl = s;
 			listType = isChannelUrl(s) ? 'channel' : 'playlist';
 			currentPlaylistIndex = -1;
+            currentListSource = 'playlist';
 			updatePlayerControls();
 			setStatus(listType === 'channel' ? 'Loading channel...' : 'Loading playlist...');
 			showSkeletons(pageSize);
@@ -425,6 +443,7 @@ const go = async () => {
 			currentMode = 'video';
 			currentPlaylistIndex = -1;
 			playlistUrl = '';
+            currentListSource = null;
 			updatePlayerControls();
 			clearListUI();
 			setStatus('Playing video');
@@ -437,6 +456,7 @@ const go = async () => {
 		currentMode = 'search';
 		searchQuery = s;
 		currentPlaylistIndex = -1;
+        currentListSource = null;
 		updatePlayerControls();
 		setStatus('Searching...');
 		showSkeletons(pageSize);
