@@ -13,7 +13,9 @@ let listType = 'playlist'; // 'playlist' | 'channel'
 let currentListSource = null; // 'search' | 'playlist' | null
 
 const updatePlayerControls = () => {
-	$('#playerControls').style.display = currentPlaylistIndex >= 0 ? 'flex' : 'none';
+	const pc = $('#playerControls');
+	if (!pc) return;
+	pc.style.display = 'none';
 };
 
 const setStatus = (text) => { $('#status').textContent = text || ''; };
@@ -45,12 +47,21 @@ const showSkeletons = (count = 8) => {
 };
 
 const formatDuration = (d) => {
-	if (!d) return '';
-	if (typeof d === 'string') {
-		// Keep as-is if already formatted like 3:45 or 1:02:03
-		return d;
-	}
-	const sec = Number(d) || 0;
+    if (d == null || d === '') return '';
+    // If string and contains only digits, treat as seconds; if already mm:ss or hh:mm:ss, keep
+    if (typeof d === 'string') {
+        const s = d.trim();
+        if (/^\d+$/.test(s)) {
+            d = parseInt(s, 10);
+        } else if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
+            return s;
+        } else {
+            // fallback: try parse number
+            const n = Number(s);
+            if (Number.isFinite(n)) d = n; else return s;
+        }
+    }
+    const sec = Number(d) || 0;
 	const h = Math.floor(sec / 3600);
 	const m = Math.floor((sec % 3600) / 60);
 	const s = Math.floor(sec % 60);
@@ -371,8 +382,7 @@ const prevInPlaylist = async () => {
     if (currentPlaylistIndex <= 0) return;
     await playPlaylistIndex(currentPlaylistIndex - 1);
 };
-$('#btnPrev').addEventListener('click', prevInPlaylist);
-$('#btnNext').addEventListener('click', nextInPlaylist);
+// Next/Prev controls removed
 $('#player').addEventListener('ended', () => {
 	const s = loadAppSettings();
 	const onEnd = (s.onEnd || 'stop');

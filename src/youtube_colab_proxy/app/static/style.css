@@ -94,6 +94,7 @@ body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Robo
 .thumb-wrap {
 	position: relative;
 }
+/* Player side navigation removed */
 .duration-badge {
 	position: absolute;
 	bottom: 8px;

@@ -192,10 +192,12 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 				if not (vid and YOUTUBE_ID_RE.match(vid)):
 					continue
 				ch = (e.get("uploader") or e.get("channel") or "").strip()
+				dur = e.get("duration") or e.get("duration_string") or ""
 				items.append({
 					"id": vid,
 					"title": title or "(no title)",
 					"channel": ch,
+					"duration": dur if isinstance(dur, str) else (str(dur) if dur else ""),
 					"watchUrl": f"https://www.youtube.com/watch?v={vid}",
 					"stream": f"/stream?id={vid}",
 					"thumb": f"/api/thumb/{vid}?q=hq",
