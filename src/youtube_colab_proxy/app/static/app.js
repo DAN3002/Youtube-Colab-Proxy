@@ -2,8 +2,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 // Global playback state
-let currentMode = 'search'; // 'search' | 'playlist' | 'video' | 'streamlink'
-let currentTab = 'youtube'; // 'youtube' | 'streamlink'
+let currentMode = 'search'; // 'search' | 'playlist' | 'video'
+let currentTab = 'youtube'; // only 'youtube' (streamlink disabled)
 let paging = { page: 1, totalPages: 1, hasMore: false };
 let pageSize = 8;
 let searchQuery = '';
@@ -286,11 +286,10 @@ const switchTab = (tabName) => {
 	hidePlayer();
 };
 
-$('#tabYoutube').addEventListener('click', () => switchTab('youtube'));
-$('#tabStreamlink').addEventListener('click', () => switchTab('streamlink'));
+$('#tabYoutube')?.addEventListener('click', () => switchTab('youtube'));
 
-// Streamlink functionality
-const setStreamStatus = (text) => { $('#streamStatus').textContent = text || ''; };
+// Streamlink functionality (disabled in UI)
+const setStreamStatus = (text) => { const el = $('#streamStatus'); if (el) el.textContent = text || ''; };
 
 // Stream settings persistence
 const SETTINGS_KEY = 'ycp_stream_settings_v1';
@@ -583,5 +582,5 @@ const playStreamlinkVideo = () => {
 		});
 };
 
-$('#btnPlayStream').addEventListener('click', playStreamlinkVideo);
-$('#streamUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') playStreamlinkVideo(); }); 
+$('#btnPlayStream')?.addEventListener('click', playStreamlinkVideo);
+$('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') playStreamlinkVideo(); }); 

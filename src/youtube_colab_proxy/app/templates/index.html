@@ -8,14 +8,14 @@
 		<link rel="stylesheet" href="/static/style.css" />
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 	</head>
-	<body>
-		<div class="wrap">
+	<body style="min-height: 100vh; display: flex; flex-direction: column;">
+		<main style="flex: 1;">
+			<div class="wrap">
 			<h1 style="margin: 8px 0 0; font-weight: 700;">YouTube Proxy Player</h1>
 
 			<!-- Tab Navigation -->
 			<div class="tabs" style="margin: 16px 0;">
 				<button id="tabYoutube" class="tab-btn active">YouTube</button>
-				<button id="tabStreamlink" class="tab-btn">Stream Link</button>
 			</div>
 
 			<!-- YouTube Tab Content -->
@@ -27,20 +27,7 @@
 				<div id="status" class="muted" style="margin-top:8px;"></div>
 			</div>
 
-			<!-- Streamlink Tab Content -->
-			<div id="streamlinkTab" class="tab-content">
-				<div class="row">
-					<input id="streamUrl" type="text" placeholder="Paste a streaming link (Twitch, Vimeo, Facebook, TikTok, Kick...)" />
-					<button id="btnPlayStream">Play</button>
-					<button id="btnStreamSettings" class="icon-btn" title="Settings" aria-label="Settings">
-						<i class="fa-solid fa-gear" aria-hidden="true"></i>
-					</button>
-				</div>
-				<div class="muted" style="margin-top:6px;">
-					Supported: Twitch, Vimeo, Facebook, TikTok, Kick, AfreecaTV, Bilibili, Dailymotion, X (Twitter), Instagram.
-				</div>
-				<div id="streamStatus" class="muted" style="margin-top:8px;"></div>
-			</div>
+			<!-- Streamlink Tab disabled -->
 
 			<div id="results" class="grid" style="margin-top: 14px;"></div>
 			<div id="pager" class="row" style="margin-top: 8px; display:none;">
@@ -63,7 +50,8 @@
 				<button id="btnPrev">Prev</button>
 				<button id="btnNext">Next</button>
 			</div>
-		</div>
+		</div> <!-- end .wrap -->
+		</main>
 
 		<!-- Modal -->
 		<div id="modal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5);">
@@ -74,28 +62,18 @@
 			</div>
 		</div>
 
-		<!-- Streaming loading overlay -->
-		<div id="streamLoading" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999;">
-			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:420px; width:calc(100% - 32px); color:#eaeef2; text-align:center;">
-				<div style="font-weight:700; margin-bottom:8px;">Preparing stream…</div>
-				<div id="streamLoadingMsg" class="muted">Buffering initial delay window…</div>
-			</div>
-		</div>
+		<!-- Streamlink overlays/settings disabled -->
 
-		<!-- Stream settings modal -->
-		<div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5); z-index:10000;">
-			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:420px; width:calc(100% - 32px); color:#eaeef2;">
-				<div style="font-weight:700; margin-bottom:8px;">Stream Settings</div>
-				<div class="muted" style="margin-bottom:8px;">Configure playback delay (seconds)</div>
-				<div class="row" style="margin-bottom:12px;">
-					<input id="settingsDelay" type="number" min="0" value="30" style="width:140px;" placeholder="Delay (sec)" />
-				</div>
-				<div style="text-align:right; display:flex; gap:8px; justify-content:flex-end;">
-					<button id="settingsCancel">Cancel</button>
-					<button id="settingsSave">Save</button>
-				</div>
+		<!-- Footer -->
+		<footer style="margin-top: auto; text-align: center; padding: 16px 0; border-top: 1px solid #262b36; background: rgba(23, 27, 33, 0.8);">
+			<div class="muted" style="font-size: 13px;">
+				<i class="fa-solid fa-code" style="margin-right: 6px;"></i>
+				Created by <a href="https://github.com/DAN3002/Youtube-Colab-Proxy" target="_blank" rel="noopener" style="color: #4f9cf9; text-decoration: none; font-weight: 600;">D.A.N_3002</a>
 			</div>
-		</div>
+			<div class="muted" style="font-size: 11px; margin-top: 4px; opacity: 0.7;">
+				v0.5.2.1
+			</div>
+		</footer>
 
 		<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>
 		<script src="/static/app.js"></script>
