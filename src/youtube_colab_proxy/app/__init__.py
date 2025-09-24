@@ -212,6 +212,48 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 		except Exception as e:
 			return jsonify({"items": [], "error": str(e)}), 500
 
+	@app.get("/api/formats")
+	def api_formats():  # type: ignore
+		"""Return available progressive MP4 resolutions for a given video id or url."""
+		url_param = (request.args.get("url") or "").strip()
+		id_param = (request.args.get("id") or "").strip()
+		if url_param:
+			watch_url = normalize_youtube_url(url_param)
+		elif id_param and YOUTUBE_ID_RE.match(id_param):
+			watch_url = f"https://www.youtube.com/watch?v={id_param}"
+		else:
+			return jsonify({"formats": []})
+		try:
+			import yt_dlp
+			from .. import const as _const
+			ydl_opts = {
+				"quiet": True,
+				"skip_download": True,
+				"nocheckcertificate": True,
+				"http_headers": {
+					"Accept-Language": _const.YT_LANG,
+				},
+				"geo_bypass_country": _const.YT_GEO_BYPASS_COUNTRY,
+			}
+			if _const.OUTBOUND_PROXY:
+				ydl_opts["proxy"] = _const.OUTBOUND_PROXY
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				info = ydl.extract_info(watch_url, download=False)
+			fmts = info.get("formats") or []
+			heights = set()
+			for f in fmts:
+				try:
+					if (f.get("vcodec") and f.get("vcodec") != "none") and (f.get("acodec") and f.get("acodec") != "none"):
+						h = int(f.get("height") or 0)
+						if h > 0:
+							heights.add(h)
+				except Exception:
+					continue
+			out = sorted(list(heights), reverse=True)
+			return jsonify({"formats": [{"height": h, "label": f"{h}p"} for h in out]})
+		except Exception as e:
+			return jsonify({"formats": [], "error": str(e)})
+
 	@app.get("/stream")
 	def stream():  # type: ignore
 		url_param = (request.args.get("url") or "").strip()

@@ -42,7 +42,10 @@
 							<div id="nowPlaying" class="text-lg font-semibold"></div>
 							<div id="nowChannel" class="muted"></div>
 						</div>
+					<div class="row" style="gap: 8px;">
+						<select id="videoResolution" class="px-2 py-1 rounded-md bg-neutral-900 border border-slate-700 text-xs" title="Resolution" style="display:none;"></select>
 						<a id="openStream" class="pill bg-blue-600/20 text-blue-300 hover:bg-blue-600/30" href="#" target="_blank" rel="noopener">Open stream</a>
+					</div>
 					</div>
 					<video id="player" class="player rounded-lg" controls playsinline preload="metadata"></video>
 				</div>

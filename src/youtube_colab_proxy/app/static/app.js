@@ -101,6 +101,13 @@ const renderCards = (mountNode, items, {onClick} = {}) => {
 const setPlayer = (src, title, channel='') => {
 	const v = $('#player');
 	const isHls = typeof src === 'string' && src.includes('.m3u8') || src.includes('/streamlink/hls');
+
+	// Reset per-video resolution dropdown visibility
+	const resSel = $('#videoResolution');
+	if (resSel) {
+		resSel.style.display = 'none';
+		resSel.innerHTML = '';
+	}
 	
 	// Remove existing error handlers
 	if (v._errorHandler) {
@@ -201,7 +208,33 @@ const playById = (id, title, channel='') => {
 	const app = loadAppSettings();
 	const h = Number(app.resolution || 0);
 	const qs = h > 0 ? `&h=${h}` : '';
-	return setPlayer(`/stream?id=${encodeURIComponent(id)}${qs}`, title, channel);
+	const url = `/stream?id=${encodeURIComponent(id)}${qs}`;
+	setPlayer(url, title, channel);
+	// Fetch formats and populate resolution select
+	fetch(`/api/formats?id=${encodeURIComponent(id)}`)
+		.then(r => r.json())
+		.then(data => {
+			const sel = $('#videoResolution');
+			if (!sel) return;
+			const formats = (data && Array.isArray(data.formats)) ? data.formats : [];
+			if (formats.length === 0) { sel.style.display = 'none'; return; }
+			// Build options: Auto + heights
+			const app = loadAppSettings();
+			const cur = Number(app.resolution || 0);
+			let html = `<option value="0">Auto</option>`;
+			html += formats.map(f => `<option value="${f.height}">${f.label}</option>`).join('');
+			sel.innerHTML = html;
+			sel.value = String(cur > 0 ? cur : 0);
+			sel.style.display = '';
+			// Change handler reloads current video with chosen height
+			sel.onchange = () => {
+				const newH = parseInt(sel.value, 10) || 0;
+				saveAppSettings({ ...loadAppSettings(), resolution: newH });
+				const qs2 = newH > 0 ? `&h=${newH}` : '';
+				setPlayer(`/stream?id=${encodeURIComponent(id)}${qs2}`, title, channel);
+			};
+		})
+		.catch(() => {});
 };
 
 // App settings
