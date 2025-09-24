@@ -188,8 +188,9 @@ const setPlayer = (src, title, channel='') => {
 const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title, channel);
 
 // App settings
-const APP_SETTINGS_KEY = 'ycp_app_settings_v1';
-const defaultAppSettings = { loopback: false, searchAutoplay: false };
+const APP_SETTINGS_KEY = 'ycp_app_settings_v2';
+// onEnd: 'stop' | 'loop' | 'next'
+const defaultAppSettings = { onEnd: 'stop' };
 const loadAppSettings = () => {
 	try {
 		const raw = localStorage.getItem(APP_SETTINGS_KEY);
@@ -344,28 +345,39 @@ $('#btnPrev').addEventListener('click', prevInPlaylist);
 $('#btnNext').addEventListener('click', nextInPlaylist);
 $('#player').addEventListener('ended', () => {
 	const s = loadAppSettings();
-	if (currentPlaylistIndex >= 0) {
-		// Playlist mode: always move next
-		nextInPlaylist();
-		return;
+	const onEnd = (s.onEnd || 'stop');
+
+	// If playing a direct pasted link (custom video), always stop
+	// We detect this by currentMode === 'video' and playlistUrl is empty and searchQuery may be a URL
+	if (currentMode === 'video' && !playlistUrl && isYouTubeUrl($('#q').value.trim())) {
+		return; // stop
 	}
-	if (s.loopback) {
-		// Simply restart current video
+
+	if (currentPlaylistIndex >= 0) {
+		if (onEnd === 'loop') {
+			try { const v = $('#player'); v.currentTime = 0; v.play().catch(() => {}); } catch {}
+			return;
+		}
+		if (onEnd === 'next') { nextInPlaylist(); return; }
+		return; // stop
+	}
+
+	if (onEnd === 'loop') {
 		try { const v = $('#player'); v.currentTime = 0; v.play().catch(() => {}); } catch {}
 		return;
 	}
-	// Not in playlist, optionally autoplay next search result
-	if (currentMode === 'video' && s.searchAutoplay) {
+
+	if (onEnd === 'next' && currentMode === 'video') {
 		if (!searchQuery) return;
 		setStatus('Auto-playing next search result');
-		// Render and then click the next card to ensure UI also updates/highlights
 		renderSearch(1).then(() => {
 			const cards = $('#results')?.querySelectorAll('.card');
-			if (cards && cards.length >= 2) {
-				cards[1].click();
-			}
+			if (cards && cards.length >= 2) cards[1].click();
 		}).catch(() => {});
+		return;
 	}
+
+	// default: stop
 });
 
 // YouTube-like keyboard shortcuts
@@ -477,8 +489,8 @@ const saveSettings = (s) => {
 // Settings modal controls
 const openSettings = () => {
 	const app = loadAppSettings();
-	$('#optLoopback') && ($('#optLoopback').checked = !!app.loopback);
-	$('#optSearchAutoplay') && ($('#optSearchAutoplay').checked = !!app.searchAutoplay);
+	const sel = $('#optOnEnd');
+	if (sel) sel.value = app.onEnd || 'stop';
 	const m = $('#settingsModal');
 	if (m) m.style.display = 'flex';
 };
@@ -487,9 +499,9 @@ $('#btnSettings')?.addEventListener('click', openSettings);
 $('#settingsCancel')?.addEventListener('click', closeSettings);
 $('#settingsSave')?.addEventListener('click', () => {
 	const app = loadAppSettings();
-	const loopback = !!($('#optLoopback') && $('#optLoopback').checked);
-	const searchAutoplay = !!($('#optSearchAutoplay') && $('#optSearchAutoplay').checked);
-	saveAppSettings({ ...app, loopback, searchAutoplay });
+	const sel = $('#optOnEnd');
+	const onEnd = (sel && sel.value) ? sel.value : 'stop';
+	saveAppSettings({ ...app, onEnd });
 	closeSettings();
 });
 
