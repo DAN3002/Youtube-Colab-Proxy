@@ -185,12 +185,17 @@ const setPlayer = (src, title, channel='') => {
 	try { document.getElementById('playerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
 };
 
-const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title, channel);
+const playById = (id, title, channel='') => {
+	const app = loadAppSettings();
+	const h = Number(app.resolution || 0);
+	const qs = h > 0 ? `&h=${h}` : '';
+	return setPlayer(`/stream?id=${encodeURIComponent(id)}${qs}`, title, channel);
+};
 
 // App settings
-const APP_SETTINGS_KEY = 'ycp_app_settings_v2';
-// onEnd: 'stop' | 'loop' | 'next'
-const defaultAppSettings = { onEnd: 'stop' };
+const APP_SETTINGS_KEY = 'ycp_app_settings_v3';
+// onEnd: 'stop' | 'loop' | 'next'; resolution: 0(best) or max height
+const defaultAppSettings = { onEnd: 'stop', resolution: 0 };
 const loadAppSettings = () => {
 	try {
 		const raw = localStorage.getItem(APP_SETTINGS_KEY);
@@ -423,7 +428,10 @@ const go = async () => {
 			updatePlayerControls();
 			clearListUI();
 			setStatus('Playing video');
-			setPlayer(`/stream?url=${encodeURIComponent(s)}`, 'Custom video', '');
+			const app = loadAppSettings();
+			const h = Number(app.resolution || 0);
+			const qs = h > 0 ? `&h=${h}` : '';
+			setPlayer(`/stream?url=${encodeURIComponent(s)}${qs}`, 'Custom video', '');
 		}
 	} else {
 		currentMode = 'search';
@@ -491,6 +499,8 @@ const openSettings = () => {
 	const app = loadAppSettings();
 	const sel = $('#optOnEnd');
 	if (sel) sel.value = app.onEnd || 'stop';
+	const resSel = $('#optResolution');
+	if (resSel) resSel.value = String(app.resolution ?? 0);
 	const m = $('#settingsModal');
 	if (m) m.style.display = 'flex';
 };
@@ -501,7 +511,13 @@ $('#settingsSave')?.addEventListener('click', () => {
 	const app = loadAppSettings();
 	const sel = $('#optOnEnd');
 	const onEnd = (sel && sel.value) ? sel.value : 'stop';
-	saveAppSettings({ ...app, onEnd });
+	const resSel = $('#optResolution');
+	let resolution = 0;
+	if (resSel) {
+		const raw = parseInt(resSel.value, 10);
+		resolution = Number.isNaN(raw) ? 0 : raw;
+	}
+	saveAppSettings({ ...app, onEnd, resolution });
 	closeSettings();
 });
 

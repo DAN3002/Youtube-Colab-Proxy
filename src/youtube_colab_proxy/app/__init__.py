@@ -221,7 +221,14 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 		else:
 			return Response("Missing or invalid url/id", status=400)
 		try:
-			direct_url, ydl_headers = resolve_direct_media(watch_url)
+			# Optional max height parameter
+			max_h_param = request.args.get("h")
+			max_h = None
+			try:
+				max_h = int(max_h_param) if max_h_param is not None else None
+			except Exception:
+				max_h = None
+			direct_url, ydl_headers = resolve_direct_media(watch_url, max_height=max_h or 10**9)
 		except Exception as e:
 			return Response(f"Failed to resolve media: {e}", status=502)
 
