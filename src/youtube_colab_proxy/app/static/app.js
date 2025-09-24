@@ -72,20 +72,94 @@ const setPlayer = (src, title, channel='') => {
 	const v = $('#player');
 	const isHls = typeof src === 'string' && src.includes('.m3u8') || src.includes('/streamlink/hls');
 	
+	// Remove existing error handlers
+	if (v._errorHandler) {
+		v.removeEventListener('error', v._errorHandler);
+		v._errorHandler = null;
+	}
+	
+	// Add error handler for video loading failures
+	const errorHandler = (e) => {
+		console.error('Video load error:', e);
+		let errorMsg = 'Failed to load video. ';
+		
+		// Try to get more specific error info
+		if (v.error) {
+			switch (v.error.code) {
+				case v.error.MEDIA_ERR_ABORTED:
+					errorMsg += 'Video loading was aborted.';
+					break;
+				case v.error.MEDIA_ERR_NETWORK:
+					errorMsg += 'Network error occurred while loading video.';
+					break;
+				case v.error.MEDIA_ERR_DECODE:
+					errorMsg += 'Video format is not supported or corrupted.';
+					break;
+				case v.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+					errorMsg += 'Video source is not supported or unavailable.';
+					break;
+				default:
+					errorMsg += 'Unknown error occurred.';
+			}
+		} else {
+			errorMsg += 'Please try again or check the video URL.';
+		}
+		
+		openModal(errorMsg);
+		$('#playerWrap').style.display = 'none';
+		setStatus('Video load failed');
+	};
+	
+	v.addEventListener('error', errorHandler);
+	v._errorHandler = errorHandler;
+	
 	if (isHls && window.Hls && Hls.isSupported()) {
 		try {
 			if (v._hls) { v._hls.destroy(); v._hls = null; }
 			const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
+			
+			// Add HLS error handling
+			hls.on(window.Hls.Events.ERROR, (event, data) => {
+				if (data.fatal) {
+					console.error('HLS fatal error:', data);
+					let errorMsg = 'Failed to stream video. ';
+					
+					switch (data.type) {
+						case window.Hls.ErrorTypes.NETWORK_ERROR:
+							errorMsg += 'Network connection issue.';
+							break;
+						case window.Hls.ErrorTypes.MEDIA_ERROR:
+							errorMsg += 'Video format or codec issue.';
+							break;
+						default:
+							errorMsg += 'Streaming service unavailable.';
+					}
+					
+					openModal(errorMsg);
+					$('#playerWrap').style.display = 'none';
+					setStatus('Stream failed');
+				}
+			});
+			
 			hls.loadSource(src);
 			hls.attachMedia(v);
 			v._hls = hls;
-		} catch {}
+		} catch (err) {
+			console.error('HLS setup error:', err);
+			openModal('Failed to initialize video player. Please try again.');
+			return;
+		}
 	} else {
 		if (v._hls) { try { v._hls.destroy(); } catch {} v._hls = null; }
 		v.src = src;
 	}
+	
 	v.currentTime = 0;
-	v.play().catch(() => {});
+	v.play().catch((err) => {
+		console.error('Video play error:', err);
+		// Don't show modal for autoplay issues, just log
+	});
+	
 	$('#playerWrap').style.display = 'block';
 	$('#nowPlaying').textContent = title || '';
 	$('#nowChannel').textContent = channel || '';
@@ -98,16 +172,32 @@ const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURICom
 const fetchSearchPage = async (q, page) => {
 	setStatus(`Search: "${q}" (page ${page})...`);
 	$('#results').innerHTML = '<div class="muted">Loading…</div>';
-	const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
-	return r.json();
+	try {
+		const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+		if (!r.ok) {
+			throw new Error(`Search failed: ${r.status} ${r.statusText}`);
+		}
+		return await r.json();
+	} catch (err) {
+		openModal(`Search error: ${err.message || 'Network or server issue occurred.'}`);
+		throw err;
+	}
 };
 
 const fetchPlaylistPage = async (url, page) => {
 	const label = listType === 'channel' ? 'Channel' : 'Playlist';
 	setStatus(`${label} page ${page}...`);
 	$('#results').innerHTML = '<div class="muted">Loading…</div>';
-	const r = await fetch(`/api/playlist?url=${encodeURIComponent(url)}&page=${page}`);
-	return r.json();
+	try {
+		const r = await fetch(`/api/playlist?url=${encodeURIComponent(url)}&page=${page}`);
+		if (!r.ok) {
+			throw new Error(`${label} failed: ${r.status} ${r.statusText}`);
+		}
+		return await r.json();
+	} catch (err) {
+		openModal(`${label} error: ${err.message || 'Network or server issue occurred.'}`);
+		throw err;
+	}
 };
 
 const renderSearch = async (page) => {
@@ -560,10 +650,17 @@ const playStreamlinkVideo = () => {
 	
 	// Check if stream is supported first, then play
 	fetch(`/api/streamlink/info?url=${encodeURIComponent(url)}`)
-		.then(response => response.json())
+		.then(async response => {
+			if (!response.ok) {
+				throw new Error(`Server error: ${response.status} ${response.statusText}`);
+			}
+			return await response.json();
+		})
 		.then(data => {
 			if (!data.supported) {
-				setStreamStatus(data.error || 'Stream not supported or unavailable');
+				const errorMsg = data.error || 'Stream not supported or unavailable';
+				setStreamStatus(errorMsg);
+				openModal(`Streaming error: ${errorMsg}`);
 				return;
 			}
 			
@@ -578,7 +675,9 @@ const playStreamlinkVideo = () => {
 			}
 		})
 		.catch(error => {
-			setStreamStatus(`Error: ${error.message}`);
+			const errorMsg = `Streaming error: ${error.message || 'Network or server issue occurred.'}`;
+			setStreamStatus(errorMsg);
+			openModal(errorMsg);
 		});
 };
 
@@ -589,12 +688,16 @@ $('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') pla
 window.addEventListener('DOMContentLoaded', async () => {
 	try {
 		const r = await fetch('/api/version');
+		if (!r.ok) {
+			throw new Error(`Version API failed: ${r.status}`);
+		}
 		const data = await r.json();
 		if (data && data.version) {
 			const versionEl = $('#appVersion');
 			if (versionEl) versionEl.textContent = `v${data.version}`;
 		}
-	} catch {
-		// Silent fail - keep default "v..." text
+	} catch (err) {
+		console.warn('Failed to load version:', err.message);
+		// Silent fail - keep default "v..." text, don't show popup for this
 	}
 }); 
