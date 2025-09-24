@@ -76,6 +76,9 @@ const renderCards = (mountNode, items, {onClick} = {}) => {
 	`).join('');
 	mountNode.querySelectorAll('.card').forEach((el, idx) => {
 		el.addEventListener('click', () => {
+			// highlight active card within current mount
+			Array.from(mountNode.querySelectorAll('.card')).forEach(n => n.classList.remove('active'));
+			el.classList.add('active');
 			const id = el.getAttribute('data-id');
 			const title = decodeURIComponent(el.getAttribute('data-title') || '');
 			onClick && onClick({ id, title, el, idx });
@@ -353,16 +356,14 @@ $('#player').addEventListener('ended', () => {
 	}
 	// Not in playlist, optionally autoplay next search result
 	if (currentMode === 'video' && s.searchAutoplay) {
-		// We don't have the list cached; re-run current search and play next of the first page
 		if (!searchQuery) return;
-		fetchSearchPage(searchQuery, 1).then(j => {
-			const items = j.items || [];
-			if (items.length < 2) return; // nothing next
-			const second = items[1];
-			const title = second.title || '';
-			const channel = second.channel || second.uploader || '';
-			setStatus('Auto-playing next search result');
-			playById(second.id, title, channel);
+		setStatus('Auto-playing next search result');
+		// Render and then click the next card to ensure UI also updates/highlights
+		renderSearch(1).then(() => {
+			const cards = $('#results')?.querySelectorAll('.card');
+			if (cards && cards.length >= 2) {
+				cards[1].click();
+			}
 		}).catch(() => {});
 	}
 });
