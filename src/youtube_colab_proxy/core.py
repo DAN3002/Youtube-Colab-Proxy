@@ -36,10 +36,10 @@ def start(host: str = "0.0.0.0", port: Optional[int] = None, password: Optional[
 	try:
 		base_url = get_public_proxy_url(chosen_port)
 		print("App URL:", base_url + "/")
-		try:
-			display_app_link(base_url)
-		except Exception:
-			pass
+		# try:
+		# 	display_app_link(base_url)
+		# except Exception:
+		# 	pass
 		return base_url
 	except Exception:
 		local_url = f"http://localhost:{chosen_port}"
