@@ -583,4 +583,18 @@ const playStreamlinkVideo = () => {
 };
 
 $('#btnPlayStream')?.addEventListener('click', playStreamlinkVideo);
-$('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') playStreamlinkVideo(); }); 
+$('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') playStreamlinkVideo(); });
+
+// Load app version on page load
+window.addEventListener('DOMContentLoaded', async () => {
+	try {
+		const r = await fetch('/api/version');
+		const data = await r.json();
+		if (data && data.version) {
+			const versionEl = $('#appVersion');
+			if (versionEl) versionEl.textContent = `v${data.version}`;
+		}
+	} catch {
+		// Silent fail - keep default "v..." text
+	}
+}); 

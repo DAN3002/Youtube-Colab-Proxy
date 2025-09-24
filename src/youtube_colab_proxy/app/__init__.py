@@ -76,6 +76,17 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 	def index():  # type: ignore
 		return render_template("index.html")
 
+	@app.get("/api/version")
+	def api_version():  # type: ignore
+		"""Return application version."""
+		try:
+			import importlib.metadata
+			version = importlib.metadata.version("youtube-colab-proxy")
+			return jsonify({"version": version})
+		except Exception:
+			# Fallback if package not installed properly
+			return jsonify({"version": "dev"})
+
 	@app.get("/api/thumb/<vid>")
 	def api_thumb(vid):  # type: ignore
 		if not YOUTUBE_ID_RE.match(vid):
