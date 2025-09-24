@@ -15,6 +15,10 @@ You can use the following formats to play videos:
 
 ## Troubleshooting
 
+### I don't know password to run in Google Colab?
+
+You can contact to the owner to get the password. Or just read the code =))
+
 ### Why i can't view video in Vietnam?
 
 Because YouTube has geo-restriction, if you run this via Google Colab, all backend services will be hosted in US => Some video have rules to only show in Vietnam => You can't view them.
