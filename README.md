@@ -156,6 +156,12 @@ pip install -U pip setuptools wheel build pytest
 pip install -e .
 ```
 
+To run and test the application, you can use the following commands:
+```bash
+# Run the application
+./run_ycp.sh
+```
+
 ## Author
 
 - [@DAN3002](https://github.com/DAN3002)
