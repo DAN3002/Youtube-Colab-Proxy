@@ -7,50 +7,57 @@
 		<link rel="stylesheet" href="https://unpkg.com/@mantine/core@7.17.8/styles.css" />
 		<link rel="stylesheet" href="/static/style.css" />
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+		<script src="https://cdn.tailwindcss.com"></script>
 	</head>
-	<body style="min-height: 100vh; display: flex; flex-direction: column;">
+	<body class="min-h-screen flex flex-col bg-neutral-950 text-slate-100" style="min-height: 100vh; display: flex; flex-direction: column;">
+		<!-- Header -->
+		<header id="siteHeader" class="sticky top-0 z-50 bg-neutral-950/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/70 border-b border-slate-800">
+			<div class="wrap">
+				<div class="row" style="justify-content: space-between;">
+					<div class="flex items-center gap-2">
+						<span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-red-600 text-white">
+							<i class="fa-brands fa-youtube"></i>
+						</span>
+						<span class="font-semibold">YouTube Proxy</span>
+					</div>
+					<div class="flex-1 flex items-center gap-2">
+						<input id="q" type="text" placeholder="Paste YouTube link or type keywords" class="w-full rounded-lg bg-neutral-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+						<button id="btnGo" class="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium">Go</button>
+					</div>
+					<div class="hidden sm:flex items-center gap-2"></div>
+				</div>
+			</div>
+		</header>
+
 		<main style="flex: 1;">
 			<div class="wrap">
-			<h1 style="margin: 8px 0 0; font-weight: 700;">YouTube Proxy Player</h1>
-
-			<!-- Tab Navigation -->
-			<div class="tabs" style="margin: 16px 0;">
-				<button id="tabYoutube" class="tab-btn active">YouTube</button>
-			</div>
-
-			<!-- YouTube Tab Content -->
-			<div id="youtubeTab" class="tab-content active">
-				<div class="row">
-					<input id="q" type="text" placeholder="Paste YouTube link or type keywords" />
-					<button id="btnGo">Go</button>
-				</div>
-				<div id="status" class="muted" style="margin-top:8px;"></div>
-			</div>
-
-			<!-- Streamlink Tab disabled -->
-
-			<div id="results" class="grid" style="margin-top: 14px;"></div>
-			<div id="pager" class="row" style="margin-top: 8px; display:none;">
-				<button id="btnPrevPage">Prev page</button>
-				<div id="pageInfo" class="muted"></div>
-				<button id="btnNextPage">Next page</button>
-			</div>
-
-			<div id="playerWrap" style="margin-top: 18px; display:none;">
-				<div class="row" style="justify-content: space-between;">
-					<div>
-						<div id="nowPlaying" style="font-weight:600;"></div>
-						<div id="nowChannel" class="muted"></div>
+				<!-- Player section -->
+				<div id="playerWrap" class="mt-4" style="margin-top: 18px; display:none;">
+					<div class="row" style="justify-content: space-between;">
+						<div>
+							<div id="nowPlaying" class="text-lg font-semibold"></div>
+							<div id="nowChannel" class="muted"></div>
+						</div>
+						<a id="openStream" class="pill bg-blue-600/20 text-blue-300 hover:bg-blue-600/30" href="#" target="_blank" rel="noopener">Open stream</a>
 					</div>
-					<a id="openStream" class="pill" href="#" target="_blank" rel="noopener">Open stream</a>
+					<video id="player" class="player rounded-lg" controls playsinline preload="metadata"></video>
 				</div>
-				<video id="player" class="player" controls playsinline preload="metadata"></video>
-			</div>
-			<div id="playerControls" class="row" style="margin-top: 8px; display:none;">
-				<button id="btnPrev">Prev</button>
-				<button id="btnNext">Next</button>
-			</div>
-		</div> <!-- end .wrap -->
+				<div id="playerControls" class="row" style="margin-top: 8px; display:none;">
+					<button id="btnPrev" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700">Prev</button>
+					<button id="btnNext" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700">Next</button>
+				</div>
+
+				<!-- Status -->
+				<div id="status" class="muted mt-2"></div>
+
+				<!-- Results grid -->
+				<div id="results" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4" style="margin-top: 14px;"></div>
+				<div id="pager" class="row" style="margin-top: 8px; display:none;">
+					<button id="btnPrevPage" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700">Prev page</button>
+					<div id="pageInfo" class="muted"></div>
+					<button id="btnNextPage" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700">Next page</button>
+				</div>
+			</div> <!-- end .wrap -->
 		</main>
 
 		<!-- Modal -->
@@ -65,14 +72,12 @@
 		<!-- Streamlink overlays/settings disabled -->
 
 		<!-- Footer -->
-		<footer style="margin-top: auto; text-align: center; padding: 16px 0; border-top: 1px solid #262b36; background: rgba(23, 27, 33, 0.8);">
-			<div class="muted" style="font-size: 13px;">
-				<i class="fa-solid fa-code" style="margin-right: 6px;"></i>
-				Created by <a href="https://github.com/DAN3002/Youtube-Colab-Proxy" target="_blank" rel="noopener" style="color: #4f9cf9; text-decoration: none; font-weight: 600;">D.A.N_3002</a>
+		<footer class="mt-auto text-center py-4 border-t border-slate-800 bg-neutral-900/60">
+			<div class="muted text-sm">
+				<i class="fa-solid fa-code mr-1.5"></i>
+				Created by <a href="https://github.com/DAN3002/Youtube-Colab-Proxy" target="_blank" rel="noopener" class="text-blue-400 font-semibold hover:underline">D.A.N_3002</a>
 			</div>
-			<div id="appVersion" class="muted" style="font-size: 11px; margin-top: 4px; opacity: 0.7;">
-				v...
-			</div>
+			<div id="appVersion" class="muted text-xs mt-1 opacity-70">v...</div>
 		</footer>
 
 		<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>

@@ -30,6 +30,19 @@ const clearListUI = () => {
 	$('#pager').style.display = 'none';
 };
 
+const showSkeletons = (count = 8) => {
+	const nodes = Array.from({ length: count }).map(() => `
+		<div class="card">
+			<div class="thumb skeleton" style="aspect-ratio:16/9;"></div>
+			<div style="margin-top:8px;">
+				<div class="skeleton" style="height:14px; width:90%; border-radius:6px;"></div>
+				<div class="skeleton" style="height:12px; width:60%; margin-top:6px; border-radius:6px;"></div>
+			</div>
+		</div>
+	`).join('');
+	$('#results').innerHTML = nodes;
+};
+
 const formatDuration = (d) => {
 	if (!d) return '';
 	if (typeof d === 'string') {
@@ -53,10 +66,12 @@ const renderCards = (mountNode, items, {onClick} = {}) => {
 	}));
 	mountNode.innerHTML = items.map((v) => `
 		<div class="card" data-id="${v.id}" data-title="${encodeURIComponent(v.title)}">
-			<img class="thumb" loading="lazy" src="${v.thumb}" alt="${v.title}" />
-			<div style="margin-top:8px; font-weight:600;">${v.title}</div>
-			<div class="muted">${v.channel || ''}</div>
-			<div class="muted">${formatDuration(v.duration) || ''}</div>
+			<div class="thumb-wrap">
+				<img class="thumb" loading="lazy" src="${v.thumb}" alt="${v.title}" />
+				${v.duration ? `<span class="duration-badge">${formatDuration(v.duration)}</span>` : ''}
+			</div>
+			<div style="margin-top:8px; font-weight:600;" class="clamp-2">${v.title}</div>
+			<div class="muted clamp-1">${v.channel || ''}</div>
 		</div>
 	`).join('');
 	mountNode.querySelectorAll('.card').forEach((el, idx) => {
@@ -164,6 +179,7 @@ const setPlayer = (src, title, channel='') => {
 	$('#nowPlaying').textContent = title || '';
 	$('#nowChannel').textContent = channel || '';
 	$('#openStream').href = src;
+	try { document.getElementById('playerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
 };
 
 const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title, channel);
@@ -171,7 +187,7 @@ const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURICom
 // Backend calls
 const fetchSearchPage = async (q, page) => {
 	setStatus(`Search: "${q}" (page ${page})...`);
-	$('#results').innerHTML = '<div class="muted">Loading…</div>';
+	showSkeletons(pageSize);
 	try {
 		const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
 		if (!r.ok) {
@@ -310,6 +326,24 @@ $('#btnPrev').addEventListener('click', prevInPlaylist);
 $('#btnNext').addEventListener('click', nextInPlaylist);
 $('#player').addEventListener('ended', () => { if (currentPlaylistIndex >= 0) nextInPlaylist(); });
 
+// YouTube-like keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+	const v = $('#player');
+	if (!v || $('#playerWrap').style.display === 'none') return;
+	if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+	const key = e.key;
+	if (key === ' ' || key === 'k' || key === 'K') {
+		e.preventDefault();
+		if (v.paused) v.play().catch(() => {}); else v.pause();
+	} else if (key === 'j' || key === 'J' || key === 'ArrowLeft') {
+		e.preventDefault();
+		try { v.currentTime = Math.max(0, (v.currentTime || 0) - 5); } catch {}
+	} else if (key === 'l' || key === 'L' || key === 'ArrowRight') {
+		e.preventDefault();
+		try { v.currentTime = Math.max(0, (v.currentTime || 0) + 5); } catch {}
+	}
+});
+
 // Input handling
 const isYouTubeUrl = (s) => /^https?:\/\/(www\.)?((youtube\.com\/)|(youtu\.be\/))/i.test(s);
 const isPlaylistUrl = (s) => /[?&]list=/.test(s);
@@ -326,6 +360,7 @@ const go = async () => {
 			currentPlaylistIndex = -1;
 			updatePlayerControls();
 			setStatus(listType === 'channel' ? 'Loading channel...' : 'Loading playlist...');
+			showSkeletons(pageSize);
 			await renderPlaylist(1);
 		} else {
 			currentMode = 'video';
@@ -342,6 +377,7 @@ const go = async () => {
 		currentPlaylistIndex = -1;
 		updatePlayerControls();
 		setStatus('Searching...');
+		showSkeletons(pageSize);
 		await renderSearch(1);
 	}
 };
