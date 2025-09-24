@@ -1,6 +1,36 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+// Cross-subdomain settings helpers (for *.prod.colab.dev)
+const _getSharedCookieDomain = () => {
+	try {
+		const h = location.hostname || '';
+		if (h.endsWith('.prod.colab.dev')) return '.prod.colab.dev';
+	} catch {}
+	return null;
+};
+const _setCookie = (name, value, days = 365) => {
+	try {
+		const d = new Date();
+		d.setTime(d.getTime() + (days*24*60*60*1000));
+		const expires = '; expires=' + d.toUTCString();
+		const domain = _getSharedCookieDomain();
+		document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/' + (domain ? '; domain=' + domain : '');
+	} catch {}
+};
+const _getCookie = (name) => {
+	try {
+		const cname = name + '=';
+		const ca = document.cookie.split(';');
+		for (let i = 0; i < ca.length; i++) {
+			let c = ca[i];
+			while (c.charAt(0) === ' ') c = c.substring(1);
+			if (c.indexOf(cname) === 0) return decodeURIComponent(c.substring(cname.length, c.length));
+		}
+	} catch {}
+	return null;
+};
+
 // Global playback state
 let currentMode = 'search'; // 'search' | 'playlist' | 'video'
 let currentTab = 'youtube'; // only 'youtube' (streamlink disabled)
@@ -242,15 +272,27 @@ const APP_SETTINGS_KEY = 'ycp_app_settings_v3';
 // onEnd: 'stop' | 'loop' | 'next'; resolution: 0(best) or max height
 const defaultAppSettings = { onEnd: 'stop', resolution: 0 };
 const loadAppSettings = () => {
+	// Prefer localStorage; fallback to shared cookie for *.prod.colab.dev
 	try {
 		const raw = localStorage.getItem(APP_SETTINGS_KEY);
-		if (!raw) return { ...defaultAppSettings };
-		const j = JSON.parse(raw);
-		return { ...defaultAppSettings, ...j };
-	} catch { return { ...defaultAppSettings }; }
+		if (raw) {
+			const j = JSON.parse(raw);
+			return { ...defaultAppSettings, ...j };
+		}
+	} catch {}
+	try {
+		const c = _getCookie(APP_SETTINGS_KEY);
+		if (c) {
+			const j = JSON.parse(c);
+			return { ...defaultAppSettings, ...j };
+		}
+	} catch {}
+	return { ...defaultAppSettings };
 };
 const saveAppSettings = (s) => {
-	try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ ...defaultAppSettings, ...(s||{}) })); } catch {}
+	const payload = JSON.stringify({ ...defaultAppSettings, ...(s||{}) });
+	try { localStorage.setItem(APP_SETTINGS_KEY, payload); } catch {}
+	_setCookie(APP_SETTINGS_KEY, payload, 365);
 };
 
 // Backend calls
@@ -545,16 +587,29 @@ const setStreamStatus = (text) => { const el = $('#streamStatus'); if (el) el.te
 // Stream settings persistence
 const SETTINGS_KEY = 'ycp_stream_settings_v1';
 const loadSettings = () => {
+	// Prefer localStorage; fallback to shared cookie
 	try {
 		const raw = localStorage.getItem(SETTINGS_KEY);
-		if (!raw) return { delay: 30 };
-		const j = JSON.parse(raw);
-		const d = Number.isFinite(j.delay) ? j.delay : 30;
-		return { delay: Math.max(0, Math.min(600, d)) };
-	} catch { return { delay: 30 }; }
+		if (raw) {
+			const j = JSON.parse(raw);
+			const d = Number.isFinite(j.delay) ? j.delay : 30;
+			return { delay: Math.max(0, Math.min(600, d)) };
+		}
+	} catch {}
+	try {
+		const c = _getCookie(SETTINGS_KEY);
+		if (c) {
+			const j = JSON.parse(c);
+			const d = Number.isFinite(j.delay) ? j.delay : 30;
+			return { delay: Math.max(0, Math.min(600, d)) };
+		}
+	} catch {}
+	return { delay: 30 };
 };
 const saveSettings = (s) => {
-	try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s || { delay: 30 })); } catch {}
+	const payload = JSON.stringify(s || { delay: 30 });
+	try { localStorage.setItem(SETTINGS_KEY, payload); } catch {}
+	_setCookie(SETTINGS_KEY, payload, 365);
 };
 
 // Settings modal controls
