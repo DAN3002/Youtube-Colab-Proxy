@@ -24,7 +24,11 @@
 						<input id="q" type="text" placeholder="Paste YouTube link or type keywords" class="w-full rounded-lg bg-neutral-900 border border-slate-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
 						<button id="btnGo" class="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium">Go</button>
 					</div>
-					<div class="hidden sm:flex items-center gap-2"></div>
+				<div class="hidden sm:flex items-center gap-2">
+					<button id="btnSettings" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700" title="Settings">
+						<i class="fa-solid fa-gear"></i>
+					</button>
+				</div>
 				</div>
 			</div>
 		</header>
@@ -66,6 +70,27 @@
 				<div style="font-weight:700; margin-bottom:8px;">Notice</div>
 				<div id="modalMsg" class="muted" style="white-space:pre-wrap;"></div>
 				<div style="margin-top:12px; text-align:right;"><button id="modalClose">Close</button></div>
+			</div>
+		</div>
+
+		<!-- Settings Modal -->
+		<div id="settingsModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5);">
+			<div style="background:#171b21; border:1px solid #262b36; border-radius:12px; padding:16px; max-width:520px; width:calc(100% - 32px); color:#eaeef2;">
+				<div style="font-weight:700; margin-bottom:8px;">Settings</div>
+				<div class="space-y-3">
+					<label class="flex items-center gap-2">
+						<input id="optLoopback" type="checkbox" class="accent-blue-500" />
+						<span>Loopback video</span>
+					</label>
+					<label class="flex items-center gap-2">
+						<input id="optSearchAutoplay" type="checkbox" class="accent-blue-500" />
+						<span>Play next search video (when not in playlist)</span>
+					</label>
+				</div>
+				<div class="row" style="justify-content: flex-end; margin-top: 12px; gap: 8px;">
+					<button id="settingsCancel" class="px-3 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 border border-slate-700">Cancel</button>
+					<button id="settingsSave" class="px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white border border-blue-700">Save</button>
+				</div>
 			</div>
 		</div>
 

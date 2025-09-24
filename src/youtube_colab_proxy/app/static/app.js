@@ -184,6 +184,21 @@ const setPlayer = (src, title, channel='') => {
 
 const playById = (id, title, channel='') => setPlayer(`/stream?id=${encodeURIComponent(id)}`, title, channel);
 
+// App settings
+const APP_SETTINGS_KEY = 'ycp_app_settings_v1';
+const defaultAppSettings = { loopback: false, searchAutoplay: false };
+const loadAppSettings = () => {
+	try {
+		const raw = localStorage.getItem(APP_SETTINGS_KEY);
+		if (!raw) return { ...defaultAppSettings };
+		const j = JSON.parse(raw);
+		return { ...defaultAppSettings, ...j };
+	} catch { return { ...defaultAppSettings }; }
+};
+const saveAppSettings = (s) => {
+	try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ ...defaultAppSettings, ...(s||{}) })); } catch {}
+};
+
 // Backend calls
 const fetchSearchPage = async (q, page) => {
 	setStatus(`Search: "${q}" (page ${page})...`);
@@ -324,7 +339,33 @@ const prevInPlaylist = async () => {
 };
 $('#btnPrev').addEventListener('click', prevInPlaylist);
 $('#btnNext').addEventListener('click', nextInPlaylist);
-$('#player').addEventListener('ended', () => { if (currentPlaylistIndex >= 0) nextInPlaylist(); });
+$('#player').addEventListener('ended', () => {
+	const s = loadAppSettings();
+	if (currentPlaylistIndex >= 0) {
+		// Playlist mode: always move next
+		nextInPlaylist();
+		return;
+	}
+	if (s.loopback) {
+		// Simply restart current video
+		try { const v = $('#player'); v.currentTime = 0; v.play().catch(() => {}); } catch {}
+		return;
+	}
+	// Not in playlist, optionally autoplay next search result
+	if (currentMode === 'video' && s.searchAutoplay) {
+		// We don't have the list cached; re-run current search and play next of the first page
+		if (!searchQuery) return;
+		fetchSearchPage(searchQuery, 1).then(j => {
+			const items = j.items || [];
+			if (items.length < 2) return; // nothing next
+			const second = items[1];
+			const title = second.title || '';
+			const channel = second.channel || second.uploader || '';
+			setStatus('Auto-playing next search result');
+			playById(second.id, title, channel);
+		}).catch(() => {});
+	}
+});
 
 // YouTube-like keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -434,23 +475,20 @@ const saveSettings = (s) => {
 
 // Settings modal controls
 const openSettings = () => {
-	const s = loadSettings();
-	const el = $('#settingsDelay');
-	if (el) el.value = String(s.delay);
+	const app = loadAppSettings();
+	$('#optLoopback') && ($('#optLoopback').checked = !!app.loopback);
+	$('#optSearchAutoplay') && ($('#optSearchAutoplay').checked = !!app.searchAutoplay);
 	const m = $('#settingsModal');
 	if (m) m.style.display = 'flex';
 };
 const closeSettings = () => { const m = $('#settingsModal'); if (m) m.style.display = 'none'; };
-$('#btnStreamSettings')?.addEventListener('click', openSettings);
+$('#btnSettings')?.addEventListener('click', openSettings);
 $('#settingsCancel')?.addEventListener('click', closeSettings);
 $('#settingsSave')?.addEventListener('click', () => {
-	const el = $('#settingsDelay');
-	let v = 30;
-	if (el) {
-		const raw = parseInt(el.value, 10);
-		v = Number.isNaN(raw) ? 30 : raw;
-	}
-	saveSettings({ delay: Math.max(0, Math.min(600, v)) });
+	const app = loadAppSettings();
+	const loopback = !!($('#optLoopback') && $('#optLoopback').checked);
+	const searchAutoplay = !!($('#optSearchAutoplay') && $('#optSearchAutoplay').checked);
+	saveAppSettings({ ...app, loopback, searchAutoplay });
 	closeSettings();
 });
 
