@@ -639,6 +639,13 @@ $('#settingsSave')?.addEventListener('click', () => {
 	closeSettings();
 });
 
+// Reset tour from settings
+$('#settingsResetTour')?.addEventListener('click', () => {
+	try { localStorage.removeItem('ycp_tour_seen_v1'); } catch {}
+	_setCookie('ycp_tour_seen_v1', '', -1);
+	setStatus('Tour has been reset. It will show on next visit.');
+});
+
 // Delay & overlay helpers for Stream tab
 const getDelaySeconds = () => {
 	const s = loadSettings();
@@ -921,4 +928,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 		console.warn('Failed to load version:', err.message);
 		// Silent fail - keep default "v..." text, don't show popup for this
 	}
+
+	// Driver.js tour: run once per browser unless reset
+	try {
+		const TOUR_KEY = 'ycp_tour_seen_v1';
+		const seen = _getCookie(TOUR_KEY) || (localStorage.getItem(TOUR_KEY) || '');
+		if (!seen && window.driver && window.driver.js && typeof window.driver.js.driver === 'function') {
+			const driver = window.driver.js.driver;
+			const d = driver({ showProgress: true, allowClose: true, overlayOpacity: 0.65,
+				onDestroyStarted: () => { try { localStorage.setItem(TOUR_KEY, '1'); } catch {}; _setCookie(TOUR_KEY, '1'); } });
+			const steps = [];
+			if (document.querySelector('#q')) {
+				steps.push({ element: '#q', popover: { title: 'Welcome', description: 'Paste a YouTube link or type keywords, then press Go.' } });
+			}
+			if (document.querySelector('#results')) {
+				steps.push({ element: '#results', popover: { title: 'Results', description: 'Click a card to play. In playlists/channels, items form a sequence.' } });
+			}
+			if (document.querySelector('#btnSettings')) {
+				steps.push({ element: '#btnSettings', popover: { title: 'Settings', description: 'Configure end-of-video behavior and preferred resolution.' } });
+			}
+			if (document.querySelector('#btnFaq')) {
+				steps.push({ element: '#btnFaq', popover: { title: 'FAQ', description: 'Troubleshooting and tips.' } });
+			}
+			if (document.querySelector('#videoResolution')) {
+				steps.push({ element: '#videoResolution', popover: { title: 'Player', description: 'Per-video resolution shows here when available.' } });
+			}
+			if (steps.length > 0) {
+				if (typeof d.setSteps === 'function') {
+					d.setSteps(steps);
+				} else if (typeof d.defineSteps === 'function') {
+					d.defineSteps(steps);
+				}
+				d.drive();
+			} else {
+				// Nothing to show; mark as seen to avoid loop, user can reset from settings
+				try { localStorage.setItem(TOUR_KEY, '1'); } catch {}
+				_setCookie(TOUR_KEY, '1');
+			}
+		}
+	} catch {}
 }); 
