@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "youtube-colab-proxy"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Python web application that provides a YouTube video streaming proxy with a built-in web player. Designed to work seamlessly in Google Colab environments while also supporting local development and deployment."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -18,7 +18,7 @@ classifiers = [
 	"Operating System :: OS Independent",
 ]
 dependencies = [
-	"yt-dlp",
+	"yt-dlp==2025.9.23",
 	"youtube-search-python",
 	"flask",
 	"portpicker",
