@@ -8,6 +8,17 @@ set -euo pipefail
 
 PASSWORD="${1:-${ADMIN_PASSWORD:-toiyeuVPBank}}"
 
+VENV_DIR=".venv"
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$VENV_DIR" ]; then
+	echo "[YCP] Creating virtual environment..."
+	python3 -m venv "$VENV_DIR"
+fi
+
+# Activate the virtual environment
+source "$VENV_DIR/bin/activate"
+
 echo "[YCP] Installing in editable mode..."
 pip install -e .
 

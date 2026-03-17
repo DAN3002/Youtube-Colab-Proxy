@@ -289,6 +289,11 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 		]:
 			if k in ydl_headers:
 				prox_headers[k] = ydl_headers[k]
+		# YouTube CDN may require Referer & Origin on videoplayback requests
+		if "Referer" not in prox_headers:
+			prox_headers["Referer"] = "https://www.youtube.com/"
+		if "Origin" not in prox_headers:
+			prox_headers["Origin"] = "https://www.youtube.com"
 		rng = request.headers.get("Range")
 		if rng:
 			prox_headers["Range"] = rng
