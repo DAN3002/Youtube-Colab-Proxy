@@ -93,30 +93,51 @@
 		<main class="flex-1">
 			<!-- Player Section -->
 			<div id="playerWrap" class="hidden animate-fade-in">
-				<div class="bg-black">
-					<div class="max-w-[1280px] mx-auto">
-						<div class="relative aspect-video w-full overflow-hidden">
-							<video id="player" class="w-full h-full object-contain" controls playsinline preload="metadata"></video>
-						</div>
-					</div>
-				</div>
+				<div class="max-w-[1400px] mx-auto px-4 py-4">
+					<div class="watch-layout">
+						<div class="watch-player-pane">
+							<div class="bg-black rounded-xl overflow-hidden border border-yt-divider">
+								<div class="relative aspect-video w-full overflow-hidden">
+									<video id="player" class="w-full h-full object-contain" controls playsinline preload="metadata"></video>
+								</div>
+							</div>
 
-				<!-- Video Info Bar -->
-				<div class="max-w-[1280px] mx-auto px-4 py-3">
-					<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-						<div class="flex-1 min-w-0">
-							<h1 id="nowPlaying" class="text-lg font-semibold text-yt-text leading-snug line-clamp-2"></h1>
-							<div class="flex items-center gap-3 mt-1.5">
-								<div id="nowChannel" class="text-sm text-yt-text-secondary hover:text-yt-text transition-colors cursor-default"></div>
+							<!-- Video Info Bar -->
+							<div class="py-3">
+								<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+									<div class="flex-1 min-w-0">
+										<h1 id="nowPlaying" class="text-lg font-semibold text-yt-text leading-snug line-clamp-2"></h1>
+										<div class="flex items-center gap-3 mt-1.5">
+											<div id="nowChannel" class="text-sm text-yt-text-secondary hover:text-yt-text transition-colors cursor-default"></div>
+										</div>
+									</div>
+									<div class="flex items-center gap-2 flex-shrink-0">
+										<select id="videoResolution" class="hidden h-9 px-3 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text border-none outline-none cursor-pointer transition-colors duration-200" title="Resolution"></select>
+										<a id="openStream" class="inline-flex items-center gap-2 h-9 px-4 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text transition-colors duration-200" href="#" target="_blank" rel="noopener">
+											<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+											Open stream
+										</a>
+									</div>
+								</div>
 							</div>
 						</div>
-						<div class="flex items-center gap-2 flex-shrink-0">
-							<select id="videoResolution" class="hidden h-9 px-3 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text border-none outline-none cursor-pointer transition-colors duration-200" title="Resolution"></select>
-							<a id="openStream" class="inline-flex items-center gap-2 h-9 px-4 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text transition-colors duration-200" href="#" target="_blank" rel="noopener">
-								<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-								Open stream
-							</a>
-						</div>
+
+						<aside class="watch-comments-pane">
+							<div class="comments-panel">
+								<div class="comments-panel-head">
+									<div class="comments-panel-title-wrap">
+										<h2 class="comments-panel-title">Comments</h2>
+										<div id="commentsCount" class="comments-panel-count"></div>
+									</div>
+									<select id="commentsSort" class="yt-select comments-sort" title="Comment sort">
+										<option value="top">Top</option>
+										<option value="new">Newest</option>
+									</select>
+								</div>
+								<div id="commentsState" class="comments-state">Play a YouTube video to load comments.</div>
+								<div id="commentsList" class="comments-list"></div>
+							</div>
+						</aside>
 					</div>
 				</div>
 			</div>

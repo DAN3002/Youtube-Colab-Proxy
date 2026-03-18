@@ -10,3 +10,5 @@ env/
 .vscode/
 .coverage
 .pytest_cache/
+AGENTS.md
+.github/copilot-instructions.md
