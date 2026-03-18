@@ -1,88 +1,376 @@
-body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Roboto,Inter,sans-serif; }
- a { color: inherit; }
- .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
- .tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
- .tab { padding: 8px 12px; border-radius: 10px; border: 1px solid #2a3140; cursor: pointer; }
- .tab.active { background: #1d2430; border-color: #3a4458; }
- .row { display: flex; gap: 8px; align-items: center; }
- .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
- .card { background: #171b21; border: 1px solid #262b36; border-radius: 14px; padding: 12px; cursor: pointer; }
- .card:hover { outline: 2px solid #2e7dff55; }
- .card.active { outline: 2px solid #2e7dffaa; }
- .thumb { aspect-ratio: 16/9; width: 100%; object-fit: cover; border-radius: 8px; background:#0b0e12; }
- .muted { opacity: .75; font-size: 12px; }
- input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3140; background: #0f141b; color: #eaeef2; }
- button { padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3140; background: #1a2230; color: #eaeef2; cursor: pointer; }
- button:hover { background: #223044; }
- .player { width: 100%; max-width: 960px; margin: 8px auto 0; display: block; }
- .pill { background: #23304a; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+/* ============================================
+   YouTube Proxy Player – YouTube-Inspired Theme
+   ============================================ */
 
-/* New Tab Navigation Styles */
-.tab-btn {
-	padding: 12px 24px;
+/* === Keyframes / Animations === */
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+	from { opacity: 0; transform: translateY(16px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+	from { opacity: 0; transform: translateY(100%); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+	from { opacity: 0; transform: translateY(-12px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+	from { opacity: 0; transform: scale(0.92); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseGlow {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.15); }
+	50% { box-shadow: 0 0 24px 8px rgba(255, 0, 0, 0.15); }
+}
+
+@keyframes shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
+}
+
+@keyframes toastIn {
+	from { opacity: 0; transform: translateY(16px) scale(0.96); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+	from { opacity: 1; transform: translateY(0) scale(1); }
+	to { opacity: 0; transform: translateY(16px) scale(0.96); }
+}
+
+@keyframes cardAppear {
+	from { opacity: 0; transform: translateY(12px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progressBar {
+	from { width: 0%; }
+	to { width: 100%; }
+}
+
+/* === Base Styles === */
+* {
+	box-sizing: border-box;
+}
+
+body {
+	background: #0f0f0f;
+	color: #f1f1f1;
+	font-family: 'Roboto', 'Arial', sans-serif;
+	margin: 0;
+	padding: 0;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+/* === Scrollbar (YouTube-like thin) === */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-track {
 	background: transparent;
-	border: none;
-	color: #8b949e;
-	font-size: 14px;
-	font-weight: 500;
-	cursor: pointer;
-	border-bottom: 2px solid transparent;
-	transition: all 0.2s ease;
-	border-radius: 0;
+}
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.3);
 }
 
-.tab-btn:hover {
-	color: #eaeef2;
-	background: rgba(130, 80, 223, 0.1);
-}
-
-.tab-btn.active {
-	color: #8250df;
-	border-bottom-color: #8250df;
-}
-
-.tab-content {
-	display: none;
-}
-
-.tab-content.active {
-	display: block;
-}
-
-.icon-btn {
-	padding: 8px;
-	border-radius: 10px;
-	border: 1px solid #2a3140;
-	background: #1a2230;
-	color: #eaeef2;
-	cursor: pointer;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 36px;
-	height: 36px;
-}
-.icon-btn:hover { background: #223044; } 
-
-/* Skeleton loader */
+/* === Skeleton Loader === */
 .skeleton {
-	background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 37%, rgba(255,255,255,0.06) 63%);
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0.06) 0%,
+		rgba(255, 255, 255, 0.12) 20%,
+		rgba(255, 255, 255, 0.06) 40%,
+		rgba(255, 255, 255, 0.06) 100%
+	);
 	background-size: 400% 100%;
-	animation: shimmer 1.4s ease infinite;
+	animation: shimmer 1.5s ease-in-out infinite;
 	border-radius: 8px;
 }
-@keyframes shimmer {
-	0% { background-position: 100% 0; }
-	100% { background-position: 0 0; }
+
+/* === Card Styles (YouTube Video Card) === */
+.card {
+	cursor: pointer;
+	transition: transform 0.15s ease, opacity 0.15s ease;
+	animation: cardAppear 0.35s ease-out backwards;
+	border-radius: 12px;
+	padding: 0;
+	background: transparent;
 }
 
-/* Line clamp helpers */
-.clamp-2 {
+.card:hover {
+	transform: translateY(-2px);
+}
+
+.card:active {
+	transform: scale(0.98);
+}
+
+.card.active .card-thumb-wrap {
+	outline: 2px solid #3ea6ff;
+	outline-offset: 2px;
+	border-radius: 12px;
+}
+
+/* Stagger animation for grid cards */
+.card:nth-child(1) { animation-delay: 0.02s; }
+.card:nth-child(2) { animation-delay: 0.04s; }
+.card:nth-child(3) { animation-delay: 0.06s; }
+.card:nth-child(4) { animation-delay: 0.08s; }
+.card:nth-child(5) { animation-delay: 0.10s; }
+.card:nth-child(6) { animation-delay: 0.12s; }
+.card:nth-child(7) { animation-delay: 0.14s; }
+.card:nth-child(8) { animation-delay: 0.16s; }
+
+/* Thumbnail wrapper */
+.card-thumb-wrap {
+	position: relative;
+	border-radius: 12px;
+	overflow: hidden;
+	aspect-ratio: 16 / 9;
+	background: #1a1a1a;
+}
+
+.card-thumb-wrap img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: transform 0.3s ease;
+}
+
+.card:hover .card-thumb-wrap img {
+	transform: scale(1.05);
+}
+
+/* Thumbnail overlay on hover */
+.card-thumb-wrap::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.3) 100%);
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: none;
+}
+.card:hover .card-thumb-wrap::after {
+	opacity: 1;
+}
+
+/* Duration badge */
+.duration-badge {
+	position: absolute;
+	bottom: 6px;
+	right: 6px;
+	background: rgba(0, 0, 0, 0.8);
+	color: #f1f1f1;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0.3px;
+	line-height: 1.4;
+	z-index: 2;
+}
+
+/* Card info area */
+.card-info {
+	padding: 10px 2px 0;
+}
+
+.card-title {
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.4;
+	color: #f1f1f1;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
+	margin: 0;
+	transition: color 0.15s;
 }
+
+.card:hover .card-title {
+	color: #ffffff;
+}
+
+.card-channel {
+	font-size: 12px;
+	color: #aaaaaa;
+	margin-top: 4px;
+	display: -webkit-box;
+	-webkit-line-clamp: 1;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	transition: color 0.15s;
+}
+
+.card:hover .card-channel {
+	color: #cccccc;
+}
+
+/* === Suggestion Chips === */
+.suggestion-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 8px 16px;
+	background: rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 9999px;
+	font-size: 13px;
+	color: #f1f1f1;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	user-select: none;
+}
+
+.suggestion-chip:hover {
+	background: rgba(255, 255, 255, 0.2);
+	border-color: rgba(255, 255, 255, 0.15);
+	transform: translateY(-1px);
+}
+
+.suggestion-chip:active {
+	transform: scale(0.96);
+}
+
+/* === Buttons === */
+.yt-btn-primary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 36px;
+	padding: 0 16px;
+	background: #3ea6ff;
+	color: #0f0f0f;
+	font-size: 14px;
+	font-weight: 500;
+	border: none;
+	border-radius: 9999px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	outline: none;
+}
+
+.yt-btn-primary:hover {
+	background: #65b8ff;
+}
+
+.yt-btn-primary:active {
+	transform: scale(0.97);
+}
+
+.yt-btn-secondary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 36px;
+	padding: 0 16px;
+	background: rgba(255, 255, 255, 0.1);
+	color: #f1f1f1;
+	font-size: 14px;
+	font-weight: 500;
+	border: none;
+	border-radius: 9999px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	outline: none;
+}
+
+.yt-btn-secondary:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.yt-btn-secondary:active {
+	transform: scale(0.97);
+}
+
+/* === Select / Dropdown (YouTube style) === */
+.yt-select {
+	width: 100%;
+	height: 40px;
+	padding: 0 12px;
+	background: #272727;
+	color: #f1f1f1;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	font-size: 14px;
+	font-family: inherit;
+	outline: none;
+	cursor: pointer;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 12px center;
+	padding-right: 32px;
+	transition: border-color 0.2s ease;
+}
+
+.yt-select:focus {
+	border-color: #3ea6ff;
+}
+
+/* === Toast Notifications === */
+.toast {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 20px;
+	background: #f1f1f1;
+	color: #0f0f0f;
+	font-size: 14px;
+	font-weight: 400;
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+	pointer-events: auto;
+	animation: toastIn 0.3s ease-out;
+}
+
+.toast.exit {
+	animation: toastOut 0.25s ease-in forwards;
+}
+
+/* === Modal Overlay Animation === */
+.modal-content {
+	animation: scaleIn 0.2s ease-out;
+}
+
+/* Backdrop click area for modals */
+#modal, #settingsModal {
+	transition: opacity 0.2s ease;
+}
+
+/* === Video Player enhancements === */
+#player {
+	background: #000;
+	outline: none;
+}
+
+#player::-webkit-media-controls-panel {
+	background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
+/* === Line clamp helpers === */
 .clamp-1 {
 	display: -webkit-box;
 	-webkit-line-clamp: 1;
@@ -90,18 +378,74 @@ body { background: #0f1216; color: #eaeef2; font-family: system-ui,Segoe UI,Robo
 	overflow: hidden;
 }
 
-/* Card overlay for duration (YouTube-like) */
-.thumb-wrap {
-	position: relative;
+.clamp-2 {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
-/* Player side navigation removed */
-.duration-badge {
-	position: absolute;
-	bottom: 8px;
-	right: 8px;
-	background: rgba(0,0,0,0.75);
-	color: #eaeef2;
-	padding: 2px 6px;
-	border-radius: 4px;
+
+/* === Responsive adjustments === */
+@media (max-width: 639px) {
+	/* Mobile: tighter header */
+	#siteHeader .max-w-\[1400px\] {
+		padding-left: 8px;
+		padding-right: 8px;
+		gap: 8px;
+	}
+
+	/* Full-width player on mobile */
+	#playerWrap .max-w-\[1280px\] {
+		max-width: 100%;
+	}
+
+	.card-title {
+		font-size: 13px;
+	}
+
+	.card-channel {
+		font-size: 11px;
+	}
+}
+
+/* === Focus visible for keyboard accessibility === */
+*:focus-visible {
+	outline: 2px solid #3ea6ff;
+	outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible {
+	outline: 2px solid #3ea6ff;
+	outline-offset: 2px;
+	border-radius: inherit;
+}
+
+/* === Loading progress bar (top of page) === */
+#loadingBar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	height: 3px;
+	background: #ff0000;
+	z-index: 9999;
+	transition: width 0.3s ease;
+	box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+/* === Misc utility === */
+.muted {
+	opacity: 0.65;
 	font-size: 12px;
+}
+
+/* Skeleton inside cards for loading */
+.card-skeleton .card-thumb-wrap {
+	background: #1a1a1a;
+}
+
+/* Hide scrollbar during player fullscreen-like experience */
+.player-active {
+	overflow-x: hidden;
 }
