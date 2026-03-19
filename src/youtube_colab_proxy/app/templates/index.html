@@ -112,6 +112,20 @@
 										</div>
 									</div>
 									<div class="flex items-center gap-2 flex-shrink-0">
+										<div id="playerModeSwitch" class="player-mode-switch" role="group" aria-label="Player view mode">
+											<button type="button" class="player-mode-btn is-active" data-mode="normal" title="Normal mode">
+												<i class="fa-solid fa-table-cells-large text-xs"></i>
+												<span>Normal</span>
+											</button>
+											<button type="button" class="player-mode-btn" data-mode="theater" title="Theater mode">
+												<i class="fa-solid fa-film text-xs"></i>
+												<span>Theater</span>
+											</button>
+										</div>
+										<button type="button" id="theaterCommentsToggle" class="theater-comments-toggle" title="Collapse comments in theater mode" aria-label="Collapse comments in theater mode" aria-pressed="false">
+											<i class="fa-solid fa-comments text-xs"></i>
+											<span>Comments</span>
+										</button>
 										<select id="videoResolution" class="hidden h-9 px-3 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text border-none outline-none cursor-pointer transition-colors duration-200" title="Resolution"></select>
 										<a id="openStream" class="inline-flex items-center gap-2 h-9 px-4 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text transition-colors duration-200" href="#" target="_blank" rel="noopener">
 											<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
@@ -129,10 +143,19 @@
 										<h2 class="comments-panel-title">Comments</h2>
 										<div id="commentsCount" class="comments-panel-count"></div>
 									</div>
-									<select id="commentsSort" class="yt-select comments-sort" title="Comment sort">
-										<option value="top">Top</option>
-										<option value="new">Newest</option>
-									</select>
+									<div class="comments-head-controls">
+										<select id="commentsLimit" class="yt-select comments-limit" title="Comments to fetch">
+											<option value="10">10</option>
+											<option value="20">20</option>
+											<option value="50">50</option>
+											<option value="70">70</option>
+											<option value="100">100</option>
+										</select>
+										<select id="commentsSort" class="yt-select comments-sort" title="Comment sort">
+											<option value="top">Top</option>
+											<option value="new">Newest</option>
+										</select>
+									</div>
 								</div>
 								<div id="commentsState" class="comments-state">Play a YouTube video to load comments.</div>
 								<div id="commentsList" class="comments-list"></div>
