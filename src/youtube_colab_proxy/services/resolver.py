@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List, Any
 import time
 
 import yt_dlp
@@ -8,6 +8,10 @@ from .extractor import _pick_progressive_mp4  # type: ignore
 
 STREAM_CACHE: Dict[str, Dict[str, object]] = {}
 CACHE_TTL_SEC = 20 * 60
+COMMENTS_CACHE: Dict[str, Dict[str, object]] = {}
+COMMENTS_CACHE_TTL_SEC = 10 * 60
+VIDEO_INFO_CACHE: Dict[str, Dict[str, object]] = {}
+VIDEO_INFO_CACHE_TTL_SEC = 10 * 60
 
 _COOKIEFILE: Optional[str] = None
 _COOKIES_STR: Optional[str] = None
@@ -108,5 +112,64 @@ def resolve_direct_media(watch_url: str, max_height: int = 720) -> Tuple[str, Di
 	if not direct_url:
 		raise RuntimeError("No progressive MP4 found. Try a lower quality.")
 
+	# Keep lightweight metadata from stream extraction for potential reuse.
+	VIDEO_INFO_CACHE[watch_url] = {
+		"comments": info.get("comments") or [],
+		"ts": now,
+	}
+
 	STREAM_CACHE[key] = {"direct_url": direct_url, "headers": headers, "ts": now}
 	return direct_url, headers 
+
+
+def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort: str = "top") -> List[Dict[str, Any]]:
+	"""Fetch YouTube comments using yt_dlp with short-lived in-memory cache.
+
+	Returns a list of comment objects as provided by yt_dlp's extractor.
+	"""
+	clean_max = max(1, min(int(max_comments or 80), 300))
+	sort_mode = "new" if str(comment_sort).lower() == "new" else "top"
+	cache_key = f"{watch_url}::m{clean_max}::s{sort_mode}"
+	now = time.time()
+	cached = COMMENTS_CACHE.get(cache_key)
+	if cached and (now - float(cached.get("ts", 0))) < COMMENTS_CACHE_TTL_SEC:
+		return cached.get("comments", [])  # type: ignore[return-value]
+
+	# yt-dlp may include comments in normal video extraction when it is quick.
+	# Reuse those if available to avoid a second extractor call.
+	video_info = VIDEO_INFO_CACHE.get(watch_url)
+	if video_info and (now - float(video_info.get("ts", 0))) < VIDEO_INFO_CACHE_TTL_SEC:
+		quick_comments = video_info.get("comments") or []
+		if isinstance(quick_comments, list) and quick_comments:
+			COMMENTS_CACHE[cache_key] = {"comments": quick_comments, "ts": now}
+			return quick_comments
+
+	ydl_opts: Dict[str, object] = {
+		"quiet": True,
+		"no_warnings": True,
+		"skip_download": True,
+		"nocheckcertificate": True,
+		"noplaylist": True,
+		"extract_flat": False,
+		"getcomments": True,
+		"extractor_args": {
+			"youtube": {
+				"comment_sort": [sort_mode],
+				"max_comments": [str(clean_max)],
+			}
+		},
+	}
+
+	with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+		info = ydl.extract_info(watch_url, download=False)
+
+	comments = info.get("comments") or []
+	# print first comment in console for debugging
+	# if isinstance(comments, list) and comments:
+	# 	print("First comment fetched:", comments[0])
+  
+	if not isinstance(comments, list):
+		comments = []
+
+	COMMENTS_CACHE[cache_key] = {"comments": comments, "ts": now}
+	return comments

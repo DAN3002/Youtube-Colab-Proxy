@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, Response, render_template
 from youtubesearchpython import VideosSearch
 
 from ..utils.input import normalize_youtube_url, YOUTUBE_ID_RE
-from ..services.resolver import resolve_direct_media
+from ..services.resolver import resolve_direct_media, fetch_youtube_comments
 from ..services.streamlink_resolver import (
 	get_supported_sites, is_supported_url, get_stream_info,
 	resolve_stream_url, get_stream_thumbnail,
@@ -254,6 +254,87 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 			return jsonify({"formats": [{"height": h, "label": f"{h}p"} for h in out]})
 		except Exception as e:
 			return jsonify({"formats": [], "error": str(e)})
+
+	@app.get("/api/comments")
+	def api_comments():  # type: ignore
+		"""Return video comments for a YouTube video id/url using yt_dlp."""
+		url_param = (request.args.get("url") or "").strip()
+		id_param = (request.args.get("id") or "").strip()
+		limit_param = (request.args.get("limit") or "80").strip()
+		sort_param = (request.args.get("sort") or "top").strip().lower()
+		if url_param:
+			watch_url = normalize_youtube_url(url_param)
+		elif id_param and YOUTUBE_ID_RE.match(id_param):
+			watch_url = f"https://www.youtube.com/watch?v={id_param}"
+		else:
+			return jsonify({"comments": [], "error": "Missing or invalid url/id"}), 400
+
+		try:
+			limit = int(limit_param)
+		except Exception:
+			limit = 80
+		limit = max(1, min(limit, 300))
+		sort_mode = "new" if sort_param == "new" else "top"
+
+		try:
+			raw_comments = fetch_youtube_comments(watch_url, max_comments=limit, comment_sort=sort_mode)
+			top_level = []
+			replies_by_parent = {}
+
+			def _normalize_comment(c):
+				cid = str(c.get("id") or "")
+				text = c.get("text")
+				if isinstance(text, list):
+					text = "\n".join(str(x) for x in text if x is not None)
+				text = str(text or "").strip()
+				if not cid or not text:
+					return None
+				return {
+					"id": cid,
+					"author": str(c.get("author") or "Unknown"),
+					"author_thumbnail": str(c.get("author_thumbnail") or ""),
+					"text": text,
+					"like_count": int(c.get("like_count") or 0),
+					"timestamp": c.get("timestamp"),
+				}
+
+			for c in raw_comments:
+				if not isinstance(c, dict):
+					continue
+				cid = str(c.get("id") or "")
+				if not cid:
+					continue
+				parent = str(c.get("parent") or "").strip()
+				# yt_dlp uses parent='root' for top-level comments.
+				if parent and parent.lower() != "root":
+					norm_reply = _normalize_comment(c)
+					if not norm_reply:
+						continue
+					replies_by_parent.setdefault(parent, []).append(norm_reply)
+				else:
+					top_level.append(c)
+
+			comments = []
+			for c in top_level:
+				norm = _normalize_comment(c)
+				if not norm:
+					continue
+				cid = norm["id"]
+				replies = replies_by_parent.get(cid, [])
+				norm["reply_count"] = len(replies)
+				norm["replies"] = replies
+				comments.append({
+					**norm,
+				})
+
+			return jsonify({
+				"comments": comments,
+				"count": len(comments),
+				"sort": sort_mode,
+				"limit": limit,
+			})
+		except Exception as e:
+			return jsonify({"comments": [], "error": str(e)}), 502
 
 	@app.get("/stream")
 	def stream():  # type: ignore

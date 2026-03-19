@@ -41,6 +41,9 @@ let playlistUrl = '';
 let currentPlaylistIndex = -1;
 let listType = 'playlist';
 let currentListSource = null;
+let currentPlayingVideoId = null;
+let currentPlayingVideoUrl = null;
+let commentsReqToken = 0;
 
 // --- UI Helpers ---
 
@@ -68,6 +71,138 @@ const setStatus = (text) => {
 	const el = $('#status');
 	if (el) el.textContent = text || '';
 };
+
+const syncCommentsPanelHeight = () => {
+	const panel = document.querySelector('#playerWrap .comments-panel');
+	const videoBox = document.querySelector('#playerWrap .watch-player-pane .aspect-video');
+	if (!(panel instanceof HTMLElement) || !(videoBox instanceof HTMLElement)) return;
+	if (window.innerWidth <= 639) {
+		panel.style.height = '';
+		return;
+	}
+	const h = Math.round(videoBox.getBoundingClientRect().height || 0);
+	if (h > 0) panel.style.height = `${h}px`;
+};
+
+window.addEventListener('resize', syncCommentsPanelHeight);
+
+const escapeHtml = (s) => String(s || '')
+	.replace(/&/g, '&amp;')
+	.replace(/</g, '&lt;')
+	.replace(/>/g, '&gt;')
+	.replace(/"/g, '&quot;')
+	.replace(/'/g, '&#39;');
+
+const formatRelativeTime = (ts) => {
+	const n = Number(ts);
+	if (!Number.isFinite(n) || n <= 0) return '';
+	const now = Math.floor(Date.now() / 1000);
+	const d = Math.max(0, now - n);
+	if (d < 60) return 'just now';
+	if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+	if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+	if (d < 86400 * 30) return `${Math.floor(d / 86400)}d ago`;
+	if (d < 86400 * 365) return `${Math.floor(d / (86400 * 30))}mo ago`;
+	return `${Math.floor(d / (86400 * 365))}y ago`;
+};
+
+const setCommentsState = (text) => {
+	const el = $('#commentsState');
+	if (el) el.textContent = text || '';
+};
+
+const setCommentsCount = (n) => {
+	const el = $('#commentsCount');
+	if (!el) return;
+	if (!Number.isFinite(n) || n < 0) {
+		el.textContent = '';
+		return;
+	}
+	el.textContent = `${n.toLocaleString()} comment${n === 1 ? '' : 's'}`;
+};
+
+const clearCommentsList = () => {
+	const list = $('#commentsList');
+	if (list) list.innerHTML = '';
+	setCommentsCount(-1);
+};
+
+const renderComments = (comments = []) => {
+	const list = $('#commentsList');
+	if (!list) return;
+	if (!Array.isArray(comments) || comments.length === 0) {
+		list.innerHTML = '';
+		setCommentsCount(0);
+		setCommentsState('No comments found for this video.');
+		return;
+	}
+	setCommentsCount(comments.length);
+	setCommentsState('');
+
+	const renderOneComment = (c, isReply = false) => {
+		const author = escapeHtml(c.author || 'Unknown');
+		const text = escapeHtml(c.text || '').replace(/\n/g, '<br>');
+		const avatar = c.author_thumbnail ? escapeHtml(c.author_thumbnail) : '';
+		const likes = Number(c.like_count || 0);
+		const replies = Number(c.reply_count || 0);
+		const time = formatRelativeTime(c.timestamp);
+		const childReplies = Array.isArray(c.replies) ? c.replies : [];
+		return `
+			<div class="comment-item ${isReply ? 'comment-item-reply' : ''}">
+				${avatar ? `<img class="comment-avatar" src="${avatar}" alt="${author}" loading="lazy" />` : '<div class="comment-avatar"></div>'}
+				<div class="comment-body">
+					<div class="comment-meta">
+						<span class="comment-author">${author}</span>
+						${time ? `<span class="comment-time">${time}</span>` : ''}
+					</div>
+					<p class="comment-text">${text}</p>
+					<div class="comment-actions">
+						<span><i class="fa-regular fa-thumbs-up"></i> ${likes.toLocaleString()}</span>
+						${!isReply && replies > 0 ? `<span><i class="fa-regular fa-comment"></i> ${replies.toLocaleString()} replies</span>` : ''}
+					</div>
+					${!isReply && childReplies.length > 0 ? `<div class="comment-replies">${childReplies.map((r) => renderOneComment(r, true)).join('')}</div>` : ''}
+				</div>
+			</div>
+		`;
+	};
+
+	list.innerHTML = comments.map((c) => renderOneComment(c, false)).join('');
+};
+
+const loadCommentsForCurrent = async () => {
+	const list = $('#commentsList');
+	if (!list) return;
+	if (!currentPlayingVideoId && !currentPlayingVideoUrl) {
+		clearCommentsList();
+		setCommentsState('Play a YouTube video to load comments.');
+		return;
+	}
+	const sort = ($('#commentsSort')?.value || 'top');
+	const token = ++commentsReqToken;
+	clearCommentsList();
+	setCommentsState('Loading comments...');
+	try {
+		const base = currentPlayingVideoId
+			? `/api/comments?id=${encodeURIComponent(currentPlayingVideoId)}`
+			: `/api/comments?url=${encodeURIComponent(currentPlayingVideoUrl)}`;
+		const url = `${base}&sort=${encodeURIComponent(sort)}&limit=80`;
+		const res = await fetch(url);
+		const data = await res.json();
+		if (token !== commentsReqToken) return;
+		if (!res.ok) {
+			throw new Error(data.error || `Request failed (${res.status})`);
+		}
+		renderComments(data.comments || []);
+	} catch (err) {
+		if (token !== commentsReqToken) return;
+		clearCommentsList();
+		setCommentsState(`Failed to load comments: ${err.message || 'Unknown error'}`);
+	}
+};
+
+$('#commentsSort')?.addEventListener('change', () => {
+	loadCommentsForCurrent();
+});
 
 const openModal = (msg) => {
 	$('#modalMsg').textContent = msg || '';
@@ -278,6 +413,7 @@ const setPlayer = (src, title, channel = '') => {
 	v.play().catch(() => {});
 
 	showEl($('#playerWrap'));
+	syncCommentsPanelHeight();
 	$('#nowPlaying').textContent = title || '';
 	$('#nowChannel').textContent = channel || '';
 	$('#openStream').href = src;
@@ -285,6 +421,10 @@ const setPlayer = (src, title, channel = '') => {
 };
 
 const playById = (id, title, channel = '') => {
+	currentPlayingVideoId = id || null;
+	currentPlayingVideoUrl = id ? `https://www.youtube.com/watch?v=${id}` : null;
+	loadCommentsForCurrent();
+
 	const app = loadAppSettings();
 	const h = Number(app.resolution || 0);
 	const qs = h > 0 ? `&h=${h}` : '';
@@ -554,6 +694,11 @@ const go = async () => {
 	hideWelcome();
 	if (isYouTubeUrl(s)) {
 		if (isPlaylistUrl(s) || isChannelUrl(s)) {
+			currentPlayingVideoId = null;
+			currentPlayingVideoUrl = null;
+			clearCommentsList();
+			setCommentsState('Pick a video from the list to view comments.');
+
 			currentMode = 'playlist';
 			playlistUrl = s;
 			listType = isChannelUrl(s) ? 'channel' : 'playlist';
@@ -571,12 +716,20 @@ const go = async () => {
 			updatePlayerControls();
 			clearListUI();
 			setStatus('Playing video');
+			currentPlayingVideoId = null;
+			currentPlayingVideoUrl = s;
+			loadCommentsForCurrent();
 			const app = loadAppSettings();
 			const h = Number(app.resolution || 0);
 			const qs = h > 0 ? `&h=${h}` : '';
 			setPlayer(`/stream?url=${encodeURIComponent(s)}${qs}`, 'Custom video', '');
 		}
 	} else {
+		currentPlayingVideoId = null;
+		currentPlayingVideoUrl = null;
+		clearCommentsList();
+		setCommentsState('Comments are shown when a YouTube video is playing.');
+
 		currentMode = 'search';
 		searchQuery = s;
 		currentPlaylistIndex = -1;
@@ -646,6 +799,10 @@ const switchTab = (tabName) => {
 	clearListUI();
 	setStatus('');
 	setStreamStatus('');
+	currentPlayingVideoId = null;
+	currentPlayingVideoUrl = null;
+	clearCommentsList();
+	setCommentsState('Comments are only available while watching YouTube videos.');
 	hidePlayer();
 };
 
@@ -744,6 +901,11 @@ const _secondsBufferedAhead = (video) => {
 };
 
 const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
+	currentPlayingVideoId = null;
+	currentPlayingVideoUrl = null;
+	clearCommentsList();
+	setCommentsState('Comments are unavailable for Streamlink sources.');
+
 	const v = $('#player');
 	try {
 		v.controls = false;
@@ -883,6 +1045,7 @@ const setDelayedHlsPlayer = (src, title, channel = '', delaySec = 30) => {
 	}
 
 	showEl($('#playerWrap'));
+	syncCommentsPanelHeight();
 	$('#nowPlaying').textContent = title || '';
 	$('#nowChannel').textContent = channel || '';
 	$('#openStream').href = src;
@@ -925,6 +1088,10 @@ const playStreamlinkVideo = () => {
 
 	currentMode = 'streamlink';
 	currentPlaylistIndex = -1;
+	currentPlayingVideoId = null;
+	currentPlayingVideoUrl = null;
+	clearCommentsList();
+	setCommentsState('Comments are unavailable for Streamlink sources.');
 	updatePlayerControls();
 	clearListUI();
 
@@ -965,6 +1132,10 @@ $('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') pla
 // --- Init ---
 
 window.addEventListener('DOMContentLoaded', async () => {
+	setCommentsState('Play a YouTube video to load comments.');
+	setCommentsCount(-1);
+	syncCommentsPanelHeight();
+
 	try {
 		const r = await fetch('/api/version');
 		if (!r.ok) throw new Error(`Version API failed: ${r.status}`);
