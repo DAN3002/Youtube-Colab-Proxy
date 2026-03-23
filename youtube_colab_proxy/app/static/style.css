@@ -432,47 +432,53 @@ a {
 	cursor: not-allowed;
 }
 
-/* === Watch Layout (70/30 split) === */
+/* === Watch Layout (YouTube-like: primary left + secondary right) === */
 .watch-layout {
 	display: flex;
 	align-items: flex-start;
-	gap: 18px;
+	gap: 24px;
 }
 
-.watch-player-pane {
-	flex: 0 0 70%;
-	max-width: 70%;
+.watch-primary {
+	flex: 1 1 0%;
 	min-width: 0;
 }
 
-.watch-comments-pane {
-	flex: 0 0 30%;
-	max-width: 30%;
-	min-width: 280px;
+.watch-secondary {
+	flex: 0 0 402px;
+	max-width: 402px;
+	min-width: 0;
+	position: sticky;
+	top: 16px;
+	max-height: calc(100vh - 80px);
+	overflow-y: auto;
 }
 
+/* Theater mode: full-width stacked */
 body.player-mode-theater .watch-layout {
 	flex-direction: column;
 	gap: 14px;
 }
 
-body.player-mode-theater .watch-player-pane,
-body.player-mode-theater .watch-comments-pane {
+body.player-mode-theater .watch-primary,
+body.player-mode-theater .watch-secondary {
 	flex: 1 1 auto;
 	max-width: 100%;
 	width: 100%;
 	min-width: 0;
+	position: static;
+	max-height: none;
 }
 
 body.player-mode-theater .comments-panel {
 	max-height: none;
 }
 
-body.player-mode-theater.theater-comments-collapsed .watch-comments-pane {
+body.player-mode-theater.theater-comments-collapsed .watch-secondary {
 	display: none;
 }
 
-body.player-mode-theater.theater-comments-collapsed .watch-player-pane {
+body.player-mode-theater.theater-comments-collapsed .watch-primary {
 	max-width: 100%;
 	width: 100%;
 }
@@ -660,6 +666,32 @@ body.player-mode-theater.theater-comments-collapsed .watch-player-pane {
 }
 
 /* === Responsive adjustments === */
+
+/* Tablet: narrower sidebar */
+@media (max-width: 1100px) {
+	.watch-secondary {
+		flex: 0 0 340px;
+		max-width: 340px;
+	}
+}
+
+/* Small tablet: stack columns */
+@media (max-width: 999px) {
+	.watch-layout {
+		flex-direction: column;
+	}
+
+	.watch-primary,
+	.watch-secondary {
+		flex: 1 1 auto;
+		max-width: 100%;
+		width: 100%;
+		min-width: 0;
+		position: static;
+		max-height: none;
+	}
+}
+
 @media (max-width: 639px) {
 	/* Mobile: tighter header */
 	#siteHeader .max-w-\[1400px\] {
@@ -679,18 +711,6 @@ body.player-mode-theater.theater-comments-collapsed .watch-player-pane {
 
 	.card-channel {
 		font-size: 11px;
-	}
-
-	.watch-layout {
-		flex-direction: column;
-	}
-
-	.watch-player-pane,
-	.watch-comments-pane {
-		flex: 1 1 auto;
-		max-width: 100%;
-		width: 100%;
-		min-width: 0;
 	}
 
 	.comments-panel {
@@ -748,4 +768,73 @@ select:focus-visible {
 /* Hide scrollbar during player fullscreen-like experience */
 .player-active {
 	overflow-x: hidden;
+}
+
+/* === Flat comments list (below player) === */
+.comments-list-flat {
+	min-height: 60px;
+}
+
+/* === Recommendation items in sidebar === */
+.rec-item {
+	display: flex;
+	gap: 8px;
+	padding: 4px 0;
+	border-radius: 8px;
+	transition: background-color 0.15s;
+	animation: cardAppear 0.3s ease-out backwards;
+}
+
+.rec-item:hover {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.rec-item:nth-child(1)  { animation-delay: 0.02s; }
+.rec-item:nth-child(2)  { animation-delay: 0.04s; }
+.rec-item:nth-child(3)  { animation-delay: 0.06s; }
+.rec-item:nth-child(4)  { animation-delay: 0.08s; }
+.rec-item:nth-child(5)  { animation-delay: 0.10s; }
+.rec-item:nth-child(6)  { animation-delay: 0.12s; }
+.rec-item:nth-child(7)  { animation-delay: 0.14s; }
+.rec-item:nth-child(8)  { animation-delay: 0.16s; }
+.rec-item:nth-child(9)  { animation-delay: 0.18s; }
+.rec-item:nth-child(10) { animation-delay: 0.20s; }
+.rec-item:nth-child(11) { animation-delay: 0.22s; }
+.rec-item:nth-child(12) { animation-delay: 0.24s; }
+
+.rec-thumb {
+	width: 168px;
+	flex-shrink: 0;
+	position: relative;
+}
+
+.rec-thumb img {
+	transition: transform 0.2s;
+}
+
+.rec-item:hover .rec-thumb img {
+	transform: scale(1.03);
+}
+
+/* Channel link hover */
+#channelLink:hover #nowChannel {
+	color: #ffffff;
+}
+
+/* Quality badge styling */
+#qualityBadge {
+	cursor: default;
+}
+
+/* Responsive: recommendation thumbs */
+@media (max-width: 1100px) {
+	.rec-thumb {
+		width: 140px;
+	}
+}
+
+@media (max-width: 999px) {
+	.rec-thumb {
+		width: 168px;
+	}
 }

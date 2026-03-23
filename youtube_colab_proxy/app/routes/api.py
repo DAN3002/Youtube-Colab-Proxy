@@ -211,6 +211,137 @@ async def api_formats(url: str = Query(""), id: str = Query("")):
 		return {"formats": [], "error": str(e)}
 
 
+# ---- /api/video-info ------------------------------------------------------
+
+@router.get("/video-info")
+async def api_video_info(id: str = Query("")):
+	"""Fetch video metadata: title, channel, avatar, description, and recommended videos."""
+	vid = id.strip()
+	if not vid or not YOUTUBE_ID_RE.match(vid):
+		return JSONResponse({"error": "Missing or invalid video id"}, status_code=400)
+
+	try:
+		import yt_dlp
+
+		watch_url = f"https://www.youtube.com/watch?v={vid}"
+		ydl_opts = build_ydl_base_opts()
+		ydl_opts.update({
+			"skip_download": True,
+			"nocheckcertificate": True,
+			"noplaylist": True,
+		})
+		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+			info = ydl.extract_info(watch_url, download=False)
+
+		# --- Channel info ---
+		channel_name = (info.get("channel") or info.get("uploader") or "").strip()
+		channel_id = (info.get("channel_id") or info.get("uploader_id") or "").strip()
+		channel_url = (info.get("channel_url") or info.get("uploader_url") or "").strip()
+
+		# Build internal channel link handle
+		channel_handle = ""
+		if channel_url:
+			import re as _re
+			m = _re.search(r'youtube\.com/(@[A-Za-z0-9_.-]+)', channel_url)
+			if m:
+				channel_handle = m.group(1)
+			elif channel_id and channel_id.startswith("UC"):
+				channel_handle = channel_id
+		elif channel_id:
+			channel_handle = channel_id
+
+		# Channel avatar / thumbnail
+		raw_avatar = ""
+		thumbnails = info.get("thumbnails") or []
+		# yt-dlp doesn't directly provide channel avatar in video info,
+		# so we use a known YouTube pattern
+		if channel_id:
+			# We'll let the frontend use the image proxy if needed
+			raw_avatar = ""  # will be fetched client-side if needed
+
+		# --- Video metadata ---
+		title = (info.get("title") or info.get("fulltitle") or "").strip()
+		description = (info.get("description") or "").strip()
+		view_count = info.get("view_count")
+		like_count = info.get("like_count")
+		upload_date = info.get("upload_date") or ""
+		duration = info.get("duration") or 0
+
+		# --- Available formats / qualities ---
+		fmts = info.get("formats") or []
+		heights = set()
+		best_auto_height = 0
+		for f in fmts:
+			try:
+				has_video = f.get("vcodec") and f.get("vcodec") != "none"
+				has_audio = f.get("acodec") and f.get("acodec") != "none"
+				h = int(f.get("height") or 0)
+				if has_video and h > 0:
+					heights.add(h)
+					if has_audio and h > best_auto_height:
+						best_auto_height = h
+			except Exception:
+				continue
+		sorted_heights = sorted(list(heights), reverse=True)
+		formats = [{"height": h, "label": f"{h}p"} for h in sorted_heights]
+
+		# --- Recommended / related videos ---
+		# yt-dlp doesn't return "related" videos directly in extract_info,
+		# so we use YouTube search with the video title as a proxy for recommendations
+		recommendations = []
+		if title:
+			try:
+				rec_opts = build_ydl_base_opts()
+				rec_opts.update({
+					"extract_flat": True,
+					"skip_download": True,
+					"noplaylist": True,
+				})
+				search_query = f"ytsearch15:{title}"
+				with yt_dlp.YoutubeDL(rec_opts) as ydl_rec:
+					rec_info = ydl_rec.extract_info(search_query, download=False)
+				rec_entries = rec_info.get("entries") or []
+				for e in rec_entries:
+					eid = (e.get("id") or e.get("url") or "").strip()
+					etitle = (e.get("title") or "").strip()
+					edur = e.get("duration") or e.get("duration_string") or ""
+					ech = (e.get("uploader") or e.get("channel") or "").strip()
+					if not eid or not YOUTUBE_ID_RE.match(eid):
+						continue
+					if eid == vid:
+						continue  # Skip the current video
+					recommendations.append({
+						"id": eid,
+						"title": etitle,
+						"duration": edur if isinstance(edur, str) else (str(edur) if edur else ""),
+						"channel": ech,
+						"thumb": f"/api/thumb/{eid}?q=mq",
+					})
+					if len(recommendations) >= 12:
+						break
+			except Exception:
+				pass
+
+		return {
+			"id": vid,
+			"title": title,
+			"channel": channel_name,
+			"channel_id": channel_id,
+			"channel_handle": channel_handle,
+			"channel_url": channel_url,
+			"description": description[:500] if description else "",
+			"view_count": view_count,
+			"like_count": like_count,
+			"upload_date": upload_date,
+			"duration": duration,
+			"formats": formats,
+			"best_auto_height": best_auto_height,
+			"recommendations": recommendations,
+		}
+	except Exception as e:
+		return JSONResponse({"error": str(e)}, status_code=500)
+
+
 # ---- /api/comments --------------------------------------------------------
 
 @router.get("/comments")

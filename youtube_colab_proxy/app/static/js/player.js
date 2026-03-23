@@ -1,30 +1,17 @@
 /**
  * Video player logic – loaded on /watch pages only.
  * Handles: video playback, resolution switching, HLS, keyboard shortcuts,
- * player mode (normal/theater), and playlist auto-advance.
+ * player mode (normal/theater), playlist auto-advance, channel info,
+ * quality badge, and recommended videos.
  */
 
 let currentPlayerMode = 'normal';
 let currentPlayingVideoId = null;
+let currentVideoInfo = null;
 
 // ---------------------------------------------------------------------------
 // Player mode (normal / theater)
 // ---------------------------------------------------------------------------
-
-const syncCommentsPanelHeight = () => {
-	if (currentPlayerMode === 'theater') return;
-	const panel = document.querySelector('#playerWrap .comments-panel');
-	const videoBox = document.querySelector('#playerWrap .watch-player-pane .aspect-video');
-	if (!(panel instanceof HTMLElement) || !(videoBox instanceof HTMLElement)) return;
-	if (window.innerWidth <= 639) {
-		panel.style.height = '';
-		return;
-	}
-	const h = Math.round(videoBox.getBoundingClientRect().height || 0);
-	if (h > 0) panel.style.height = `${h}px`;
-};
-
-window.addEventListener('resize', syncCommentsPanelHeight);
 
 const setPlayerModeUI = (mode) => {
 	$$('#playerModeSwitch .player-mode-btn').forEach((btn) => {
@@ -60,9 +47,205 @@ const setPlayerMode = (mode) => {
 	setPlayerModeUI(normalizedMode);
 	savePlayerMode(normalizedMode);
 	applyTheaterCommentsCollapse();
-	const panel = document.querySelector('#playerWrap .comments-panel');
-	if (panel instanceof HTMLElement) panel.style.height = '';
-	syncCommentsPanelHeight();
+};
+
+// ---------------------------------------------------------------------------
+// Page title update
+// ---------------------------------------------------------------------------
+
+const updatePageTitle = (title) => {
+	if (title) {
+		document.title = `${title} - YouTube Proxy`;
+	}
+};
+
+// ---------------------------------------------------------------------------
+// Channel info update
+// ---------------------------------------------------------------------------
+
+const updateChannelInfo = (info) => {
+	const channelName = info.channel || '';
+	const channelHandle = info.channel_handle || '';
+	const channelId = info.channel_id || '';
+
+	// Update channel name
+	const nowChannel = $('#nowChannel');
+	if (nowChannel) nowChannel.textContent = channelName;
+
+	// Update channel handle
+	const handleEl = $('#channelHandle');
+	if (handleEl) {
+		if (channelHandle && channelHandle.startsWith('@')) {
+			handleEl.textContent = channelHandle;
+		} else if (channelHandle) {
+			handleEl.textContent = `@${channelHandle}`;
+		} else {
+			handleEl.textContent = '';
+		}
+	}
+
+	// Update channel link
+	const channelLink = $('#channelLink');
+	if (channelLink) {
+		if (channelHandle) {
+			channelLink.href = `/channel/${channelHandle}`;
+		} else if (channelId) {
+			channelLink.href = `/channel/${channelId}`;
+		} else {
+			channelLink.href = '#';
+		}
+	}
+
+	// Channel avatar – use YouTube channel avatar URL pattern
+	if (channelId) {
+		// We'll show the icon initially; avatar will load via img
+		const avatarImg = $('#channelAvatarImg');
+		const avatarIcon = $('#channelAvatarIcon');
+		// Try to get avatar from channel page thumbnail (YouTube's standard pattern)
+		const avatarUrl = `/api/image-proxy?u=${encodeURIComponent(`https://yt3.googleusercontent.com/ytc/${channelId}`)}`;
+		if (avatarImg) {
+			avatarImg.src = avatarUrl;
+			avatarImg.onload = () => {
+				avatarImg.classList.remove('hidden');
+				if (avatarIcon) avatarIcon.classList.add('hidden');
+			};
+			avatarImg.onerror = () => {
+				avatarImg.classList.add('hidden');
+				if (avatarIcon) avatarIcon.classList.remove('hidden');
+			};
+		}
+	}
+};
+
+// ---------------------------------------------------------------------------
+// Video stats update
+// ---------------------------------------------------------------------------
+
+const updateVideoStats = (info) => {
+	const statsEl = $('#videoStats');
+	if (!statsEl) return;
+
+	const views = info.view_count;
+	const likes = info.like_count;
+	const date = info.upload_date;
+
+	let hasAny = false;
+
+	const viewsEl = $('#videoViews');
+	if (viewsEl && views != null) {
+		viewsEl.textContent = `${Number(views).toLocaleString()} views`;
+		hasAny = true;
+	}
+
+	const likesEl = $('#videoLikes');
+	if (likesEl && likes != null) {
+		likesEl.innerHTML = `<i class="fa-solid fa-thumbs-up mr-1"></i>${Number(likes).toLocaleString()}`;
+		hasAny = true;
+	}
+
+	const dateEl = $('#videoDate');
+	if (dateEl && date) {
+		// Format YYYYMMDD to readable
+		const formatted = date.length === 8
+			? `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`
+			: date;
+		dateEl.textContent = formatted;
+		hasAny = true;
+	}
+
+	if (hasAny) {
+		statsEl.classList.remove('hidden');
+		statsEl.classList.add('flex');
+	}
+};
+
+// ---------------------------------------------------------------------------
+// Quality badge
+// ---------------------------------------------------------------------------
+
+const updateQualityBadge = (formats, bestAutoHeight, currentResolution) => {
+	const badge = $('#qualityBadge');
+	const badgeText = $('#qualityBadgeText');
+	const resSel = $('#videoResolution');
+
+	if (!badge || !badgeText) return;
+
+	if (formats && formats.length > 0) {
+		// Show the select, hide badge
+		if (resSel) {
+			showEl(resSel);
+			badge.classList.add('hidden');
+			badge.classList.remove('inline-flex');
+
+			// Build options
+			let html = '';
+			if (bestAutoHeight > 0) {
+				html += `<option value="0">Auto (${bestAutoHeight}p)</option>`;
+			} else {
+				html += `<option value="0">Auto</option>`;
+			}
+			html += formats.map(f => `<option value="${f.height}">${f.label}</option>`).join('');
+			resSel.innerHTML = html;
+			resSel.value = String(currentResolution > 0 ? currentResolution : 0);
+			showEl(resSel);
+		}
+	} else {
+		// No formats available, show badge with auto
+		if (resSel) hideEl(resSel);
+		if (bestAutoHeight > 0) {
+			badgeText.textContent = `Auto (${bestAutoHeight}p)`;
+		} else {
+			badgeText.textContent = 'Auto';
+		}
+		badge.classList.remove('hidden');
+		badge.classList.add('inline-flex');
+	}
+};
+
+// ---------------------------------------------------------------------------
+// Recommended videos
+// ---------------------------------------------------------------------------
+
+const renderRecommendations = (recommendations) => {
+	const panel = $('#recommendationsPanel');
+	const list = $('#recommendationsList');
+	const loading = $('#recsLoading');
+
+	if (!panel || !list) return;
+
+	// Remove loading skeletons
+	if (loading) loading.remove();
+
+	if (!Array.isArray(recommendations) || recommendations.length === 0) {
+		panel.classList.add('hidden');
+		return;
+	}
+
+	let html = '';
+	for (const rec of recommendations) {
+		const dur = formatDuration(rec.duration);
+		html += `
+			<a href="/watch?v=${escapeHtml(rec.id)}" class="rec-item">
+				<div class="rec-thumb">
+					<div class="aspect-video rounded-lg overflow-hidden bg-yt-bg-elevated">
+						<img loading="lazy"
+							 src="${escapeHtml(rec.thumb || `/api/thumb/${rec.id}?q=mq`)}"
+							 alt=""
+							 class="w-full h-full object-cover" />
+					</div>
+					${dur ? `<span class="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-medium px-1 py-0.5 rounded">${escapeHtml(dur)}</span>` : ''}
+				</div>
+				<div class="flex-1 min-w-0 pt-0.5">
+					<div class="text-sm font-medium text-yt-text line-clamp-2 leading-snug">${escapeHtml(rec.title)}</div>
+					${rec.channel ? `<div class="text-xs text-yt-text-secondary mt-1">${escapeHtml(rec.channel)}</div>` : ''}
+				</div>
+			</a>
+		`;
+	}
+
+	list.innerHTML = html;
+	panel.classList.remove('hidden');
+	panel.classList.add('block');
 };
 
 // ---------------------------------------------------------------------------
@@ -72,12 +255,6 @@ const setPlayerMode = (mode) => {
 const setPlayer = (src, title, channel = '') => {
 	const v = $('#player');
 	const isHls = typeof src === 'string' && (src.includes('.m3u8') || src.includes('/streamlink/hls'));
-
-	const resSel = $('#videoResolution');
-	if (resSel) {
-		hideEl(resSel);
-		resSel.innerHTML = '';
-	}
 
 	if (v._errorHandler) {
 		v.removeEventListener('error', v._errorHandler);
@@ -131,7 +308,9 @@ const setPlayer = (src, title, channel = '') => {
 	$('#nowPlaying').textContent = title || '';
 	$('#nowChannel').textContent = channel || '';
 	$('#openStream').href = src;
-	syncCommentsPanelHeight();
+
+	// Update page title
+	if (title) updatePageTitle(title);
 };
 
 const playById = (id, title, channel = '') => {
@@ -142,7 +321,75 @@ const playById = (id, title, channel = '') => {
 	const url = `/stream?id=${encodeURIComponent(id)}${qs}`;
 	setPlayer(url, title, channel);
 
-	// Fetch available resolutions
+	// Show loading state for quality badge
+	const badge = $('#qualityBadge');
+	const badgeText = $('#qualityBadgeText');
+	if (badge && badgeText) {
+		badgeText.textContent = 'Loading...';
+		badge.classList.remove('hidden');
+		badge.classList.add('inline-flex');
+	}
+
+	// Show recommendations panel with loading state
+	const recsPanel = $('#recommendationsPanel');
+	if (recsPanel) {
+		recsPanel.classList.remove('hidden');
+		recsPanel.classList.add('flex', 'flex-col');
+	}
+
+	// Fetch comprehensive video info (includes title, channel, formats, recommendations)
+	fetch(`/api/video-info?id=${encodeURIComponent(id)}`)
+		.then(r => r.json())
+		.then(data => {
+			if (!data || data.error) {
+				console.warn('video-info error:', data?.error);
+				// Fallback: still try to get formats
+				fetchFormatsOnly(id, title, channel);
+				return;
+			}
+
+			currentVideoInfo = data;
+
+			// Update title
+			const videoTitle = data.title || title;
+			const videoChannel = data.channel || channel;
+			$('#nowPlaying').textContent = videoTitle;
+			updatePageTitle(videoTitle);
+
+			// Update channel info
+			updateChannelInfo(data);
+
+			// Update stats
+			updateVideoStats(data);
+
+			// Update quality selector
+			const formats = data.formats || [];
+			const bestAutoHeight = data.best_auto_height || 0;
+			const cur = Number(loadAppSettings().resolution || 0);
+			updateQualityBadge(formats, bestAutoHeight, cur);
+
+			// Set up resolution change handler
+			const sel = $('#videoResolution');
+			if (sel) {
+				sel.onchange = () => {
+					const newH = parseInt(sel.value, 10) || 0;
+					saveAppSettings({ ...loadAppSettings(), resolution: newH });
+					const qs2 = newH > 0 ? `&h=${newH}` : '';
+					setPlayer(`/stream?id=${encodeURIComponent(id)}${qs2}`, videoTitle, videoChannel);
+				};
+			}
+
+			// Render recommendations
+			renderRecommendations(data.recommendations || []);
+		})
+		.catch((err) => {
+			console.warn('video-info fetch failed:', err);
+			fetchFormatsOnly(id, title, channel);
+		});
+};
+
+// Fallback: fetch only formats if video-info fails
+const fetchFormatsOnly = (id, title, channel) => {
 	fetch(`/api/formats?id=${encodeURIComponent(id)}`)
 		.then(r => r.json())
 		.then(data => {
@@ -156,6 +403,12 @@ const playById = (id, title, channel = '') => {
 			sel.innerHTML = html;
 			sel.value = String(cur > 0 ? cur : 0);
 			showEl(sel);
+			// Hide quality badge
+			const badge = $('#qualityBadge');
+			if (badge) {
+				badge.classList.add('hidden');
+				badge.classList.remove('inline-flex');
+			}
 			sel.onchange = () => {
 				const newH = parseInt(sel.value, 10) || 0;
 				saveAppSettings({ ...loadAppSettings(), resolution: newH });
@@ -212,6 +465,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			const nextLink = document.querySelector('.playlist-next-link');
 			if (nextLink) {
 				window.location.href = nextLink.href;
+				return;
+			}
+			// Or try first recommendation
+			const firstRec = document.querySelector('#recommendationsList a');
+			if (firstRec) {
+				window.location.href = firstRec.href;
 			}
 		}
 	});
@@ -246,7 +505,6 @@ function initPlayerPage(videoId, playlistId, playlistIndex) {
 		commentsLimitEl.value = String(limit);
 	}
 	applyTheaterCommentsCollapse();
-	syncCommentsPanelHeight();
 
 	// Start playing video
 	if (videoId) {
@@ -256,9 +514,5 @@ function initPlayerPage(videoId, playlistId, playlistIndex) {
 		if (typeof loadCommentsForVideo === 'function') {
 			loadCommentsForVideo(videoId);
 		}
-
-		// Fetch video info to get title/channel
-		fetch(`/api/formats?id=${encodeURIComponent(videoId)}`)
-			.catch(() => {});
 	}
 }
