@@ -10,17 +10,35 @@ PASSWORD="${1:-${ADMIN_PASSWORD:-toiyeuVPBank}}"
 
 VENV_DIR=".venv"
 
+# ---------------------------------------------------------------------------
+# Detect whether `uv` is available; fall back to plain pip/venv otherwise
+# ---------------------------------------------------------------------------
+if command -v uv &>/dev/null; then
+	USE_UV=1
+else
+	USE_UV=0
+	echo "[YCP] 'uv' not found – falling back to pip (install uv for faster setup)"
+fi
+
 # Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
 	echo "[YCP] Creating virtual environment..."
-	python3 -m venv "$VENV_DIR"
+	if [ "$USE_UV" -eq 1 ]; then
+		uv venv "$VENV_DIR"
+	else
+		python3 -m venv "$VENV_DIR"
+	fi
 fi
 
 # Activate the virtual environment
 source "$VENV_DIR/bin/activate"
 
 echo "[YCP] Installing in editable mode..."
-pip install -e .
+if [ "$USE_UV" -eq 1 ]; then
+	uv pip install -e .
+else
+	pip install -e .
+fi
 
 echo "[YCP] Starting app..."
 # Pass password via env var to the Python one-liner and keep process alive
@@ -36,4 +54,4 @@ print("[YCP] App started at:", url)
 # Keep process alive since Flask runs in background thread
 while True:
 	time.sleep(3600)
-PYCODE 
+PYCODE
