@@ -470,3 +470,260 @@ async def api_replies(
 		}
 	except Exception as e:
 		return JSONResponse({"replies": [], "error": str(e)}, status_code=502)
+
+
+# ---- /api/channel/info ----------------------------------------------------
+
+def _resolve_channel_url(handle: str) -> str:
+	"""Build a YouTube channel URL from a handle, channel ID, or username."""
+	if handle.startswith("@"):
+		return f"https://www.youtube.com/{handle}"
+	if handle.startswith("UC"):
+		return f"https://www.youtube.com/channel/{handle}"
+	return f"https://www.youtube.com/@{handle}"
+
+
+@router.get("/channel/info")
+async def api_channel_info(handle: str = Query("")):
+	"""Fetch channel metadata (title, avatar, description) without loading all videos."""
+	handle = handle.strip()
+	if not handle:
+		return JSONResponse({"error": "Missing channel handle"}, status_code=400)
+
+	try:
+		import yt_dlp
+
+		channel_url = _resolve_channel_url(handle)
+		ydl_opts = build_ydl_base_opts()
+		ydl_opts.update({
+			"extract_flat": True,
+			"skip_download": True,
+			"playlist_items": "0",  # Don't download any entries – just metadata
+		})
+		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+			info = ydl.extract_info(channel_url + "/videos", download=False)
+
+		channel_title = (
+			info.get("channel")
+			or info.get("uploader")
+			or info.get("title")
+			or handle
+		)
+		channel_id = info.get("channel_id") or info.get("uploader_id") or ""
+
+		# yt-dlp exposes channel thumbnails in the thumbnails list
+		raw_avatar = ""
+		for t in (info.get("thumbnails") or []):
+			url = t.get("url") or ""
+			if url:
+				raw_avatar = url
+				break
+
+		description = (info.get("description") or "").strip()
+
+		return {
+			"title": channel_title,
+			"handle": handle,
+			"channel_id": channel_id,
+			"channel_url": _resolve_channel_url(handle),
+			"avatar": to_proxy_image_url(raw_avatar) if raw_avatar else "",
+			"description": description[:500] if description else "",
+		}
+	except Exception as e:
+		return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ---- /api/channel/videos --------------------------------------------------
+
+@router.get("/channel/videos")
+async def api_channel_videos(handle: str = Query(""), page: int = Query(1)):
+	"""Fetch paginated channel videos without loading the entire channel."""
+	handle = handle.strip()
+	page = max(1, page)
+	if not handle:
+		return JSONResponse({"items": [], "error": "Missing channel handle"}, status_code=400)
+
+	from ...const import PL_PAGE_SIZE
+	import yt_dlp
+
+	try:
+		channel_url = _resolve_channel_url(handle)
+		videos_url = normalize_list_url(channel_url)
+
+		ydl_opts = build_ydl_base_opts()
+		ydl_opts.update({
+			"extract_flat": True,
+			"skip_download": True,
+			"playlistend": page * PL_PAGE_SIZE + 1,  # Fetch just enough to know if there's a next page
+		})
+		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+			info = ydl.extract_info(videos_url, download=False)
+
+		entries = info.get("entries") or []
+		total_fetched = len(entries)
+		start = (page - 1) * PL_PAGE_SIZE
+		end = min(start + PL_PAGE_SIZE, total_fetched)
+		page_entries = entries[start:end]
+
+		items = []
+		for e in page_entries:
+			vid = (e.get("id") or e.get("url") or "").strip()
+			title = (e.get("title") or "").strip()
+			if not (vid and YOUTUBE_ID_RE.match(vid)):
+				continue
+			dur = e.get("duration") or e.get("duration_string") or ""
+			ch = (e.get("uploader") or e.get("channel") or "").strip()
+			items.append({
+				"id": vid,
+				"title": title or "(no title)",
+				"channel": ch,
+				"duration": dur if isinstance(dur, str) else (str(dur) if dur else ""),
+				"watchUrl": f"https://www.youtube.com/watch?v={vid}",
+				"stream": f"/stream?id={vid}",
+				"thumb": f"/api/thumb/{vid}?q=hq",
+			})
+
+		has_more = total_fetched > end
+
+		return {
+			"items": items,
+			"page": page,
+			"pageSize": PL_PAGE_SIZE,
+			"hasMore": has_more,
+		}
+	except Exception as e:
+		return JSONResponse({"items": [], "error": str(e)}, status_code=500)
+
+
+# ---- /api/channel/playlists -----------------------------------------------
+
+@router.get("/channel/playlists")
+async def api_channel_playlists(handle: str = Query(""), page: int = Query(1)):
+	"""Fetch paginated channel playlists."""
+	handle = handle.strip()
+	page = max(1, page)
+	if not handle:
+		return JSONResponse({"items": [], "error": "Missing channel handle"}, status_code=400)
+
+	from ...const import PL_PAGE_SIZE
+	import yt_dlp
+
+	try:
+		channel_url = _resolve_channel_url(handle)
+		playlists_url = channel_url + "/playlists"
+
+		ydl_opts = build_ydl_base_opts()
+		ydl_opts.update({
+			"extract_flat": True,
+			"skip_download": True,
+		})
+		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+			info = ydl.extract_info(playlists_url, download=False)
+
+		entries = info.get("entries") or []
+		total = len(entries)
+		start = (page - 1) * PL_PAGE_SIZE
+		end = min(start + PL_PAGE_SIZE, total)
+		page_entries = entries[start:end]
+
+		items = []
+		for e in page_entries:
+			pl_id = (e.get("id") or e.get("url") or "").strip()
+			title = (e.get("title") or "").strip()
+			if not pl_id:
+				continue
+			# Playlists may have a video count
+			n_entries = e.get("playlist_count") or e.get("n_entries") or 0
+			# Thumbnail: use first video thumb if available
+			thumb = ""
+			pl_thumbnails = e.get("thumbnails") or []
+			if pl_thumbnails:
+				thumb = to_proxy_image_url(pl_thumbnails[-1].get("url", ""))
+			items.append({
+				"id": pl_id,
+				"title": title or "(no title)",
+				"videoCount": n_entries,
+				"thumb": thumb,
+				"url": f"/playlist?list={pl_id}",
+			})
+
+		has_more = total > end
+
+		return {
+			"items": items,
+			"page": page,
+			"pageSize": PL_PAGE_SIZE,
+			"total": total,
+			"hasMore": has_more,
+		}
+	except Exception as e:
+		return JSONResponse({"items": [], "error": str(e)}, status_code=500)
+
+
+# ---- /api/channel/search --------------------------------------------------
+
+@router.get("/channel/search")
+async def api_channel_search(
+	handle: str = Query(""),
+	q: str = Query(""),
+	page: int = Query(1),
+):
+	"""Search for videos within a specific channel."""
+	handle = handle.strip()
+	q = q.strip()
+	page = max(1, page)
+	if not handle:
+		return JSONResponse({"items": [], "error": "Missing channel handle"}, status_code=400)
+	if not q:
+		return {"items": [], "page": page, "pageSize": 0, "hasMore": False}
+
+	from ...const import PL_PAGE_SIZE
+	import yt_dlp
+
+	try:
+		channel_url = _resolve_channel_url(handle)
+		# yt-dlp supports channel search via the /search?query= URL pattern
+		search_url = f"{channel_url}/search?query={q}"
+
+		ydl_opts = build_ydl_base_opts()
+		ydl_opts.update({
+			"extract_flat": True,
+			"skip_download": True,
+		})
+		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+			info = ydl.extract_info(search_url, download=False)
+
+		entries = info.get("entries") or []
+		total = len(entries)
+		start = (page - 1) * PL_PAGE_SIZE
+		end = min(start + PL_PAGE_SIZE, total)
+		page_entries = entries[start:end]
+
+		items = []
+		for e in page_entries:
+			vid = (e.get("id") or e.get("url") or "").strip()
+			title = (e.get("title") or "").strip()
+			if not (vid and YOUTUBE_ID_RE.match(vid)):
+				continue
+			dur = e.get("duration") or e.get("duration_string") or ""
+			ch = (e.get("uploader") or e.get("channel") or "").strip()
+			items.append({
+				"id": vid,
+				"title": title or "(no title)",
+				"channel": ch,
+				"duration": dur if isinstance(dur, str) else (str(dur) if dur else ""),
+				"watchUrl": f"https://www.youtube.com/watch?v={vid}",
+				"stream": f"/stream?id={vid}",
+				"thumb": f"/api/thumb/{vid}?q=hq",
+			})
+
+		has_more = total > end
+
+		return {
+			"items": items,
+			"page": page,
+			"pageSize": PL_PAGE_SIZE,
+			"hasMore": has_more,
+		}
+	except Exception as e:
+		return JSONResponse({"items": [], "error": str(e)}, status_code=500)

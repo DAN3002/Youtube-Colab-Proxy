@@ -1,63 +1,144 @@
 {% extends "base.html" %}
-{% from "partials/video_card.html" import video_card %}
-{% from "partials/pagination.html" import pagination %}
 
-{% block title %}{{ channel_title or "Channel" }} - YouTube Proxy{% endblock %}
+{% block title %}Channel - YouTube Proxy{% endblock %}
 
 {% block content %}
-<div class="max-w-[1400px] mx-auto px-4 pb-8">
+<div id="channelApp" class="max-w-[1400px] mx-auto px-4 pb-8" data-handle="{{ handle }}">
 	{% if error %}
 	<div class="flex items-center gap-3 p-4 rounded-xl bg-yt-red/10 border border-yt-red/20 my-6">
 		<i class="fa-solid fa-triangle-exclamation text-yt-red"></i>
 		<p class="text-sm text-yt-text">{{ error }}</p>
 	</div>
-	{% endif %}
+	{% else %}
 
-	<!-- Channel Header -->
-	<div class="flex items-center gap-4 py-6 border-b border-yt-divider mb-6">
-		<div class="w-16 h-16 bg-yt-bg-elevated rounded-full flex items-center justify-center flex-shrink-0">
-			<i class="fa-solid fa-user text-yt-text-secondary text-xl"></i>
+	<!-- Channel Header (skeleton → populated by JS) -->
+	<div id="channelHeader" class="flex items-center gap-4 py-6 border-b border-yt-divider mb-2">
+		<!-- Avatar -->
+		<div id="channelAvatarWrap" class="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden bg-yt-bg-elevated flex items-center justify-center">
+			<i id="channelAvatarFallback" class="fa-solid fa-user text-yt-text-secondary text-xl"></i>
+			<img id="channelAvatar" class="hidden w-full h-full object-cover" alt="Channel avatar" />
 		</div>
+		<!-- Info -->
 		<div class="flex-1 min-w-0">
-			<h1 class="text-xl font-semibold text-yt-text">{{ channel_title or handle }}</h1>
-			{% if handle %}
-			<p class="text-sm text-yt-text-secondary mt-0.5">
+			<div id="channelTitleSkeleton" class="h-6 w-48 skeleton rounded"></div>
+			<h1 id="channelTitle" class="hidden text-xl font-semibold text-yt-text"></h1>
+			<p id="channelHandle" class="text-sm text-yt-text-secondary mt-0.5">
 				{% if handle.startswith('@') %}{{ handle }}{% else %}@{{ handle }}{% endif %}
 			</p>
-			{% endif %}
-			<p class="text-xs text-yt-text-secondary mt-1">
-				{{ total }} video{{ "s" if total != 1 else "" }}
-				{% if total_pages > 1 %} &middot; Page {{ page }} / {{ total_pages }}{% endif %}
-			</p>
+			<p id="channelDescription" class="hidden text-xs text-yt-text-secondary mt-1 line-clamp-2"></p>
 		</div>
-		{% if channel_url %}
-		<a href="{{ channel_url }}" target="_blank" rel="noopener"
-		   class="yt-btn-secondary gap-2 flex-shrink-0">
+		<!-- YouTube link -->
+		<a id="channelYTLink" href="#" target="_blank" rel="noopener"
+		   class="yt-btn-secondary gap-2 flex-shrink-0 hidden">
 			<i class="fa-brands fa-youtube text-yt-red text-xs"></i>
 			YouTube
 		</a>
-		{% endif %}
 	</div>
 
-	{% if items %}
-	<!-- Videos Grid -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
-		{% for item in items %}
-		{{ video_card(item) }}
-		{% endfor %}
+	<!-- Tabs + Search bar -->
+	<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 mb-4">
+		<!-- Tab pills -->
+		<div class="flex items-center gap-1 p-1 rounded-full bg-yt-bg-secondary/60 border border-yt-divider">
+			<button data-tab="videos"
+				class="channel-tab is-active px-4 py-1.5 text-sm font-medium rounded-full transition-colors">
+				<i class="fa-solid fa-play text-xs mr-1.5"></i>Videos
+			</button>
+			<button data-tab="playlists"
+				class="channel-tab px-4 py-1.5 text-sm font-medium rounded-full transition-colors">
+				<i class="fa-solid fa-list text-xs mr-1.5"></i>Playlists
+			</button>
+		</div>
+
+		<!-- Search within channel -->
+		<form id="channelSearchForm" class="relative w-full sm:w-72" onsubmit="return false;">
+			<input id="channelSearchInput" type="text" placeholder="Search this channel..."
+				class="w-full h-9 pl-9 pr-8 text-sm bg-yt-bg-secondary border border-yt-divider rounded-full
+					   text-yt-text placeholder:text-yt-text-secondary/60 outline-none
+					   focus:border-yt-blue transition-colors" />
+			<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-yt-text-secondary"></i>
+			<button id="channelSearchClear" type="button"
+				class="absolute right-2.5 top-1/2 -translate-y-1/2 text-yt-text-secondary hover:text-yt-text text-xs opacity-0 pointer-events-none transition-opacity">
+				<i class="fa-solid fa-xmark"></i>
+			</button>
+		</form>
+	</div>
+
+	<!-- Active search indicator -->
+	<div id="searchIndicator" class="hidden flex items-center gap-2 mb-4 px-1">
+		<span class="text-sm text-yt-text-secondary">
+			Search results for "<span id="searchQueryLabel" class="text-yt-text font-medium"></span>"
+		</span>
+		<button id="clearSearchBtn" class="text-xs text-yt-blue hover:text-yt-blue/80 font-medium ml-1">
+			Clear
+		</button>
+	</div>
+
+	<!-- Content area -->
+	<div id="contentArea">
+		<!-- Loading skeleton -->
+		<div id="contentSkeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
+			<div class="space-y-2" data-skeleton>
+				<div class="skeleton aspect-video rounded-xl"></div>
+				<div class="skeleton h-4 w-3/4 rounded"></div>
+				<div class="skeleton h-3 w-1/2 rounded"></div>
+			</div>
+			<div class="space-y-2" data-skeleton>
+				<div class="skeleton aspect-video rounded-xl"></div>
+				<div class="skeleton h-4 w-3/4 rounded"></div>
+				<div class="skeleton h-3 w-1/2 rounded"></div>
+			</div>
+			<div class="space-y-2" data-skeleton>
+				<div class="skeleton aspect-video rounded-xl"></div>
+				<div class="skeleton h-4 w-3/4 rounded"></div>
+				<div class="skeleton h-3 w-1/2 rounded"></div>
+			</div>
+			<div class="space-y-2" data-skeleton>
+				<div class="skeleton aspect-video rounded-xl"></div>
+				<div class="skeleton h-4 w-3/4 rounded"></div>
+				<div class="skeleton h-3 w-1/2 rounded"></div>
+			</div>
+		</div>
+
+		<!-- Videos grid (populated by JS) -->
+		<div id="videosGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6"></div>
+
+		<!-- Playlists grid (populated by JS) -->
+		<div id="playlistsGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6"></div>
+
+		<!-- Empty state -->
+		<div id="emptyState" class="hidden flex flex-col items-center justify-center py-16">
+			<div class="w-16 h-16 bg-yt-bg-secondary rounded-full flex items-center justify-center mb-4">
+				<i id="emptyIcon" class="fa-solid fa-video text-yt-text-secondary text-xl"></i>
+			</div>
+			<h2 id="emptyTitle" class="text-lg font-medium text-yt-text mb-1">No videos found</h2>
+			<p id="emptySubtitle" class="text-sm text-yt-text-secondary">This channel has no uploaded videos.</p>
+		</div>
+
+		<!-- Error state -->
+		<div id="errorState" class="hidden flex items-center gap-3 p-4 rounded-xl bg-yt-red/10 border border-yt-red/20">
+			<i class="fa-solid fa-triangle-exclamation text-yt-red"></i>
+			<p id="errorMessage" class="text-sm text-yt-text"></p>
+			<button id="retryBtn" class="ml-auto yt-btn-secondary text-sm">Retry</button>
+		</div>
 	</div>
 
 	<!-- Pagination -->
-	{{ pagination(base_url="/channel/" ~ handle ~ "?_=1", page=page, total_pages=total_pages) }}
-
-	{% elif not error %}
-	<div class="flex flex-col items-center justify-center py-16">
-		<div class="w-16 h-16 bg-yt-bg-secondary rounded-full flex items-center justify-center mb-4">
-			<i class="fa-solid fa-user text-yt-text-secondary text-xl"></i>
-		</div>
-		<h2 class="text-lg font-medium text-yt-text mb-1">No videos found</h2>
-		<p class="text-sm text-yt-text-secondary">This channel has no uploaded videos or is unavailable.</p>
+	<div id="pagination" class="hidden mt-8 flex items-center justify-center gap-3">
+		<button id="prevBtn" class="yt-btn-secondary gap-2" disabled>
+			<i class="fa-solid fa-chevron-left text-xs"></i>
+			Previous
+		</button>
+		<div id="pageInfo" class="text-sm text-yt-text-secondary px-3"></div>
+		<button id="nextBtn" class="yt-btn-secondary gap-2" disabled>
+			Next
+			<i class="fa-solid fa-chevron-right text-xs"></i>
+		</button>
 	</div>
+
 	{% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/channel.js"></script>
 {% endblock %}
