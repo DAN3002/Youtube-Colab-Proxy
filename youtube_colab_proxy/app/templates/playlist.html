@@ -21,7 +21,15 @@
 		<div class="flex-1 min-w-0">
 			<h1 class="text-xl font-semibold text-yt-text line-clamp-2">{{ playlist_title or "Playlist" }}</h1>
 			{% if playlist_channel %}
-			<p class="text-sm text-yt-text-secondary mt-1">{{ playlist_channel }}</p>
+			<p class="text-sm text-yt-text-secondary mt-1">
+				{% if channel_handle %}
+				<a href="/channel/{{ channel_handle }}" class="hover:text-yt-text transition-colors">
+					<i class="fa-solid fa-user text-[10px] mr-1"></i>{{ playlist_channel }}
+				</a>
+				{% else %}
+				{{ playlist_channel }}
+				{% endif %}
+			</p>
 			{% endif %}
 			<p class="text-xs text-yt-text-secondary mt-1">
 				{{ total }} video{{ "s" if total != 1 else "" }}

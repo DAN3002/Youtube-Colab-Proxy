@@ -88,20 +88,18 @@ const updatePageTitle = (title) => {
 const updateChannelInfo = (info) => {
 	const channelName = info.channel || '';
 	const channelHandle = info.channel_handle || '';
-	const channelId = info.channel_id || '';
 
 	// Update channel name
 	const nowChannel = $('#nowChannel');
 	if (nowChannel) nowChannel.textContent = channelName;
 
-	// Update channel handle
+	// Update channel handle – show @handle only (not channel ID)
 	const handleEl = $('#channelHandle');
 	if (handleEl) {
 		if (channelHandle && channelHandle.startsWith('@')) {
 			handleEl.textContent = channelHandle;
-		} else if (channelHandle) {
-			handleEl.textContent = `@${channelHandle}`;
 		} else {
+			// Don't show raw channel IDs – leave empty
 			handleEl.textContent = '';
 		}
 	}
@@ -111,31 +109,31 @@ const updateChannelInfo = (info) => {
 	if (channelLink) {
 		if (channelHandle) {
 			channelLink.href = `/channel/${channelHandle}`;
-		} else if (channelId) {
-			channelLink.href = `/channel/${channelId}`;
 		} else {
 			channelLink.href = '#';
 		}
 	}
 
-	// Channel avatar – use YouTube channel avatar URL pattern
-	if (channelId) {
-		// We'll show the icon initially; avatar will load via img
-		const avatarImg = $('#channelAvatarImg');
-		const avatarIcon = $('#channelAvatarIcon');
-		// Try to get avatar from channel page thumbnail (YouTube's standard pattern)
-		const avatarUrl = `/api/image-proxy?u=${encodeURIComponent(`https://yt3.googleusercontent.com/ytc/${channelId}`)}`;
-		if (avatarImg) {
-			avatarImg.src = avatarUrl;
-			avatarImg.onload = () => {
-				avatarImg.classList.remove('hidden');
-				if (avatarIcon) avatarIcon.classList.add('hidden');
-			};
-			avatarImg.onerror = () => {
-				avatarImg.classList.add('hidden');
-				if (avatarIcon) avatarIcon.classList.remove('hidden');
-			};
-		}
+	// Channel avatar – fetch from /api/channel/info for the real avatar URL
+	const avatarImg = $('#channelAvatarImg');
+	const avatarIcon = $('#channelAvatarIcon');
+	if (avatarImg && channelHandle) {
+		fetch(`/api/channel/info?handle=${encodeURIComponent(channelHandle)}`)
+			.then(r => r.json())
+			.then(data => {
+				if (data && data.avatar) {
+					avatarImg.src = data.avatar;
+					avatarImg.onload = () => {
+						avatarImg.classList.remove('hidden');
+						if (avatarIcon) avatarIcon.classList.add('hidden');
+					};
+					avatarImg.onerror = () => {
+						avatarImg.classList.add('hidden');
+						if (avatarIcon) avatarIcon.classList.remove('hidden');
+					};
+				}
+			})
+			.catch(() => {});
 	}
 };
 

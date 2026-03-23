@@ -171,6 +171,7 @@ async def playlist_view(request: Request, list: str = Query(""), page: int = Que
 	total_pages = 1
 	playlist_title = ""
 	playlist_channel = ""
+	channel_handle = ""
 	error = None
 
 	if not playlist_id:
@@ -190,6 +191,19 @@ async def playlist_view(request: Request, list: str = Query(""), page: int = Que
 
 			playlist_title = info.get("title") or ""
 			playlist_channel = info.get("uploader") or info.get("channel") or ""
+
+			# Extract channel handle for linking
+			channel_url = (info.get("channel_url") or info.get("uploader_url") or "").strip()
+			channel_id = (info.get("channel_id") or info.get("uploader_id") or "").strip()
+			if channel_url:
+				m = re.search(r'youtube\.com/(@[A-Za-z0-9_.-]+)', channel_url)
+				if m:
+					channel_handle = m.group(1)
+				elif channel_id and channel_id.startswith("UC"):
+					channel_handle = channel_id
+			elif channel_id:
+				channel_handle = channel_id
+
 			entries = info.get("entries") or []
 			total = len(entries)
 			total_pages = max(1, (total + _const.PL_PAGE_SIZE - 1) // _const.PL_PAGE_SIZE)
@@ -216,6 +230,7 @@ async def playlist_view(request: Request, list: str = Query(""), page: int = Que
 		"playlist_id": playlist_id,
 		"playlist_title": playlist_title,
 		"playlist_channel": playlist_channel,
+		"channel_handle": channel_handle,
 		"items": items,
 		"page": page,
 		"total": total,

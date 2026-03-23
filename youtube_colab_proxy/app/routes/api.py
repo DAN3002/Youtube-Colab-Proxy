@@ -326,7 +326,6 @@ async def api_video_info(id: str = Query("")):
 			"id": vid,
 			"title": title,
 			"channel": channel_name,
-			"channel_id": channel_id,
 			"channel_handle": channel_handle,
 			"channel_url": channel_url,
 			"description": description[:500] if description else "",
@@ -485,7 +484,7 @@ def _resolve_channel_url(handle: str) -> str:
 
 @router.get("/channel/info")
 async def api_channel_info(handle: str = Query("")):
-	"""Fetch channel metadata (title, avatar, description) without loading all videos."""
+	"""Fetch channel metadata (title, avatar, banner) without loading all videos."""
 	handle = handle.strip()
 	if not handle:
 		return JSONResponse({"error": "Missing channel handle"}, status_code=400)
@@ -511,15 +510,41 @@ async def api_channel_info(handle: str = Query("")):
 		)
 		channel_id = info.get("channel_id") or info.get("uploader_id") or ""
 
-		# yt-dlp exposes channel thumbnails in the thumbnails list
+		# yt-dlp thumbnails list: separate avatar (square, yt3.ggpht.com)
+		# from banner (wide, yt3.googleusercontent.com/... banner patterns).
+		# Avatar URLs contain "yt3.ggpht.com" and are typically square.
+		# Banner URLs contain "yt3.googleusercontent.com" with wide dimensions
+		# or have "banner" / large width in their metadata.
 		raw_avatar = ""
+		raw_banner = ""
 		for t in (info.get("thumbnails") or []):
 			url = t.get("url") or ""
-			if url:
-				raw_avatar = url
-				break
+			if not url:
+				continue
+			w = t.get("width") or 0
+			h = t.get("height") or 0
+			tid = t.get("id") or ""
 
-		description = (info.get("description") or "").strip()
+			# Avatar detection: "avatar" in id, or yt3.ggpht.com URL, or roughly square
+			is_avatar = (
+				"avatar" in tid.lower()
+				or "yt3.ggpht.com" in url
+				or (w > 0 and h > 0 and 0.7 <= w / h <= 1.3 and w <= 900)
+			)
+			# Banner detection: "banner" in id, or very wide aspect ratio
+			is_banner = (
+				"banner" in tid.lower()
+				or (w > 0 and h > 0 and w / h > 2.5)
+			)
+
+			if is_avatar and not raw_avatar:
+				raw_avatar = url
+			elif is_banner:
+				# Keep the largest banner
+				raw_banner = url
+			elif not raw_avatar and not is_banner:
+				# Fallback: first thumbnail that isn't clearly a banner
+				raw_avatar = url
 
 		return {
 			"title": channel_title,
@@ -527,7 +552,7 @@ async def api_channel_info(handle: str = Query("")):
 			"channel_id": channel_id,
 			"channel_url": _resolve_channel_url(handle),
 			"avatar": to_proxy_image_url(raw_avatar) if raw_avatar else "",
-			"description": description[:500] if description else "",
+			"banner": to_proxy_image_url(raw_banner) if raw_banner else "",
 		}
 	except Exception as e:
 		return JSONResponse({"error": str(e)}, status_code=500)

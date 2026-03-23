@@ -19,13 +19,14 @@
 	if (!handle) return;
 
 	// Header
+	const elBannerWrap    = $('#channelBannerWrap');
+	const elBanner        = $('#channelBanner');
 	const elAvatarWrap    = $('#channelAvatarWrap');
 	const elAvatarFallback = $('#channelAvatarFallback');
 	const elAvatar        = $('#channelAvatar');
 	const elTitleSkeleton = $('#channelTitleSkeleton');
 	const elTitle         = $('#channelTitle');
 	const elHandle        = $('#channelHandle');
-	const elDescription   = $('#channelDescription');
 	const elYTLink        = $('#channelYTLink');
 
 	// Tabs
@@ -91,6 +92,13 @@
 		try {
 			const data = await apiFetch('/api/channel/info', { handle });
 
+			// Banner
+			if (data.banner && elBanner && elBannerWrap) {
+				elBanner.src = data.banner;
+				elBanner.onload = () => showEl(elBannerWrap);
+				elBanner.onerror = () => {}; // Keep hidden on error
+			}
+
 			// Title
 			hideEl(elTitleSkeleton);
 			elTitle.textContent = data.title || handle;
@@ -106,12 +114,6 @@
 				elAvatar.onerror = () => {
 					// Keep fallback icon visible
 				};
-			}
-
-			// Description
-			if (data.description) {
-				elDescription.textContent = data.description;
-				showEl(elDescription);
 			}
 
 			// YouTube link

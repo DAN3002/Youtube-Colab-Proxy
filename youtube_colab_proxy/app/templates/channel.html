@@ -11,8 +11,13 @@
 	</div>
 	{% else %}
 
+	<!-- Channel Banner (populated by JS) -->
+	<div id="channelBannerWrap" class="hidden mt-4 rounded-xl overflow-hidden bg-yt-bg-elevated">
+		<img id="channelBanner" class="w-full h-[120px] sm:h-[160px] lg:h-[200px] object-cover" alt="Channel banner" />
+	</div>
+
 	<!-- Channel Header (skeleton → populated by JS) -->
-	<div id="channelHeader" class="flex items-center gap-4 py-6 border-b border-yt-divider mb-2">
+	<div id="channelHeader" class="flex items-center gap-4 py-5 border-b border-yt-divider mb-2">
 		<!-- Avatar -->
 		<div id="channelAvatarWrap" class="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden bg-yt-bg-elevated flex items-center justify-center">
 			<i id="channelAvatarFallback" class="fa-solid fa-user text-yt-text-secondary text-xl"></i>
@@ -25,7 +30,6 @@
 			<p id="channelHandle" class="text-sm text-yt-text-secondary mt-0.5">
 				{% if handle.startswith('@') %}{{ handle }}{% else %}@{{ handle }}{% endif %}
 			</p>
-			<p id="channelDescription" class="hidden text-xs text-yt-text-secondary mt-1 line-clamp-2"></p>
 		</div>
 		<!-- YouTube link -->
 		<a id="channelYTLink" href="#" target="_blank" rel="noopener"
