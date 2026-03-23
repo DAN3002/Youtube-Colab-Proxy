@@ -1,0 +1,29 @@
+{#
+  Video card macro – reused on search, playlist, channel pages.
+
+  Usage:
+    {% from "partials/video_card.html" import video_card %}
+    {{ video_card(item) }}
+    {{ video_card(item, playlist_id="PLxxx", index=3) }}
+#}
+
+{% macro video_card(video, playlist_id=None, index=None) %}
+{% set href = "/watch?v=" ~ video.id %}
+{% if playlist_id %}
+	{% set href = href ~ "&list=" ~ playlist_id ~ "&index=" ~ (index|default(0)) %}
+{% endif %}
+<a href="{{ href }}" class="card group block">
+	<div class="card-thumb-wrap">
+		<img loading="lazy" src="/api/thumb/{{ video.id }}?q=hq" alt="{{ video.title }}" class="w-full h-full object-cover" />
+		{% if video.duration %}
+		<span class="duration-badge">{{ video.duration }}</span>
+		{% endif %}
+	</div>
+	<div class="card-info">
+		<div class="card-title">{{ video.title }}</div>
+		{% if video.channel %}
+		<div class="card-channel">{{ video.channel }}</div>
+		{% endif %}
+	</div>
+</a>
+{% endmacro %}

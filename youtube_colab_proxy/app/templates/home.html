@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube Proxy Player{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto px-4 pb-8">
+	<!-- Welcome / Hero State -->
+	<div class="flex flex-col items-center justify-center py-20 animate-fade-in">
+		<div class="w-20 h-20 bg-yt-red/10 rounded-full flex items-center justify-center mb-6 animate-pulse-glow">
+			<i class="fa-brands fa-youtube text-yt-red text-4xl"></i>
+		</div>
+		<h2 class="text-2xl font-medium text-yt-text mb-2">Welcome to YouTube Proxy</h2>
+		<p class="text-sm text-yt-text-secondary text-center max-w-md leading-relaxed">
+			Search for videos, paste a YouTube link, or browse playlists and channels to start watching.
+		</p>
+
+		<!-- Suggestion Chips -->
+		<div class="flex flex-wrap justify-center gap-2 mt-8">
+			<a href="/results?search_query=music+trending" class="suggestion-chip">
+				<i class="fa-solid fa-music text-xs mr-1.5"></i> Music Trending
+			</a>
+			<a href="/results?search_query=lofi+hip+hop" class="suggestion-chip">
+				<i class="fa-solid fa-headphones text-xs mr-1.5"></i> Lofi Hip Hop
+			</a>
+			<a href="/results?search_query=tech+reviews" class="suggestion-chip">
+				<i class="fa-solid fa-microchip text-xs mr-1.5"></i> Tech Reviews
+			</a>
+			<a href="/results?search_query=gaming+highlights" class="suggestion-chip">
+				<i class="fa-solid fa-gamepad text-xs mr-1.5"></i> Gaming
+			</a>
+			<a href="/results?search_query=cooking+recipes" class="suggestion-chip">
+				<i class="fa-solid fa-utensils text-xs mr-1.5"></i> Cooking
+			</a>
+			<a href="/results?search_query=news+today" class="suggestion-chip">
+				<i class="fa-solid fa-newspaper text-xs mr-1.5"></i> News
+			</a>
+		</div>
+
+		<!-- Quick Actions -->
+		<div class="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full">
+			<div class="bg-yt-bg-elevated border border-yt-divider rounded-xl p-5 text-center hover:border-yt-blue/30 transition-colors">
+				<div class="w-10 h-10 bg-yt-red/10 rounded-full flex items-center justify-center mx-auto mb-3">
+					<i class="fa-solid fa-magnifying-glass text-yt-red text-sm"></i>
+				</div>
+				<h3 class="text-sm font-medium text-yt-text mb-1">Search Videos</h3>
+				<p class="text-xs text-yt-text-secondary">Find any YouTube video by keyword</p>
+			</div>
+			<div class="bg-yt-bg-elevated border border-yt-divider rounded-xl p-5 text-center hover:border-yt-blue/30 transition-colors">
+				<div class="w-10 h-10 bg-yt-blue/10 rounded-full flex items-center justify-center mx-auto mb-3">
+					<i class="fa-solid fa-link text-yt-blue text-sm"></i>
+				</div>
+				<h3 class="text-sm font-medium text-yt-text mb-1">Paste a Link</h3>
+				<p class="text-xs text-yt-text-secondary">Paste any YouTube URL to start playing</p>
+			</div>
+			<div class="bg-yt-bg-elevated border border-yt-divider rounded-xl p-5 text-center hover:border-yt-blue/30 transition-colors">
+				<div class="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+					<i class="fa-solid fa-list text-green-500 text-sm"></i>
+				</div>
+				<h3 class="text-sm font-medium text-yt-text mb-1">Browse Playlists</h3>
+				<p class="text-xs text-yt-text-secondary">Paste a playlist or channel URL</p>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

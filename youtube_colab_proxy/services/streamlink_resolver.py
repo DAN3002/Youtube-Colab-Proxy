@@ -149,7 +149,7 @@ def resolve_stream_url(url: str, quality: str = 'best') -> Tuple[str, Dict[str, 
         if not stream:
             raise RuntimeError("No suitable stream found")
         
-        # Store the stream object for later use - we'll handle streaming in the Flask route
+        # Store the stream object for later use - we'll handle streaming in the route handler
         # Don't try to extract URL here as it's complex for HLS streams
         direct_url = f"streamlink://{url}#{quality}"
         

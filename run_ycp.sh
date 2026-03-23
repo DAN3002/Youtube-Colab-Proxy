@@ -51,7 +51,7 @@ pwd = os.environ.get("YCP_PASSWORD") or "toiyeuVPBank"
 url = ycp.start(password=pwd)
 print("[YCP] App started at:", url)
 
-# Keep process alive since Flask runs in background thread
+# Keep process alive since uvicorn runs in background thread
 while True:
 	time.sleep(3600)
 PYCODE

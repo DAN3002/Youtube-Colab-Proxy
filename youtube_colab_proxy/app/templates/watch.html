@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{% if video_id %}Watch - YouTube Proxy{% else %}Error - YouTube Proxy{% endif %}{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="max-w-[1400px] mx-auto px-4 py-8">
+	<div class="flex flex-col items-center justify-center py-16">
+		<div class="w-16 h-16 bg-yt-red/10 rounded-full flex items-center justify-center mb-4">
+			<i class="fa-solid fa-triangle-exclamation text-yt-red text-xl"></i>
+		</div>
+		<h2 class="text-lg font-medium text-yt-text mb-1">{{ error }}</h2>
+		<p class="text-sm text-yt-text-secondary">Please check the video URL and try again.</p>
+		<a href="/" class="yt-btn-primary mt-4">Go Home</a>
+	</div>
+</div>
+{% elif video_id %}
+{% include "partials/player.html" %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if video_id %}
+<script src="/static/js/player.js"></script>
+<script src="/static/js/comments.js"></script>
+<script>
+(function() {
+	const videoId = "{{ video_id }}";
+	const playlistId = {{ playlist_id|tojson if playlist_id else "null" }};
+	const playlistIndex = {{ playlist_index|tojson }};
+
+	// Initialize player
+	document.addEventListener('DOMContentLoaded', function() {
+		initPlayerPage(videoId, playlistId, playlistIndex);
+	});
+})();
+</script>
+{% endif %}
+{% endblock %}

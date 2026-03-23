@@ -21,7 +21,11 @@ dependencies = [
 	"yt-dlp>=2026.03.13",
 	"yt-dlp-ejs",
 	"youtube-search-python",
-	"flask",
+	"fastapi",
+	"uvicorn[standard]",
+	"jinja2",
+	"python-multipart",
+	"requests",
 	"portpicker",
 	"streamlink",
 ]
@@ -37,4 +41,4 @@ ycp = "youtube_colab_proxy.cli:main"
 where = ["."]
 
 [tool.setuptools.package-data]
-"youtube_colab_proxy" = ["app/templates/*.html", "app/static/*"]
+"youtube_colab_proxy" = ["app/templates/**/*.html", "app/static/**/*"]

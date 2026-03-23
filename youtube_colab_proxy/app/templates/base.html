@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{% block title %}YouTube Proxy Player{% endblock %}</title>
+		<link rel="stylesheet" href="/static/style.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script>
+			tailwind.config = {
+				theme: {
+					extend: {
+						colors: {
+							'yt-bg': '#0f0f0f',
+							'yt-bg-secondary': '#272727',
+							'yt-bg-elevated': '#1a1a1a',
+							'yt-bg-hover': '#3f3f3f',
+							'yt-text': '#f1f1f1',
+							'yt-text-secondary': '#aaaaaa',
+							'yt-red': '#ff0000',
+							'yt-red-hover': '#cc0000',
+							'yt-blue': '#3ea6ff',
+							'yt-chip': '#ffffff1a',
+							'yt-chip-active': '#f1f1f1',
+							'yt-divider': '#ffffff1a',
+						},
+						fontFamily: {
+							'youtube': ['"Roboto"', '"Arial"', 'sans-serif'],
+						},
+						animation: {
+							'fade-in': 'fadeIn 0.3s ease-out',
+							'fade-in-up': 'fadeInUp 0.4s ease-out',
+							'slide-up': 'slideUp 0.3s ease-out',
+							'slide-down': 'slideDown 0.3s ease-out',
+							'scale-in': 'scaleIn 0.2s ease-out',
+							'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+						},
+					}
+				}
+			}
+		</script>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+		{% block head %}{% endblock %}
+	</head>
+	<body class="min-h-screen flex flex-col bg-yt-bg text-yt-text font-youtube antialiased">
+
+		{% include "partials/header.html" %}
+
+		<main class="flex-1">
+			{% block content %}{% endblock %}
+		</main>
+
+		{% include "partials/footer.html" %}
+		{% include "partials/modals.html" %}
+
+		<!-- Toast Notification Container -->
+		<div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"></div>
+
+		<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>
+		<script src="/static/js/utils.js"></script>
+		<script src="/static/js/app.js"></script>
+		{% block scripts %}{% endblock %}
+	</body>
+</html>

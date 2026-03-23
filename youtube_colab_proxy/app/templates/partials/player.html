@@ -1,0 +1,118 @@
+{#
+  Video player with comments sidebar.
+
+  Expects:
+    video_id  – the YouTube video ID to play
+    playlist_id – optional playlist context
+    playlist_items – optional list of playlist entries for sidebar
+    playlist_index – current index in playlist
+#}
+
+<!-- Player Section -->
+<div id="playerWrap" class="animate-fade-in">
+	<div class="max-w-[1400px] mx-auto px-4 py-4">
+		<div class="watch-layout">
+			<div class="watch-player-pane">
+				<div class="bg-black rounded-xl overflow-hidden border border-yt-divider">
+					<div class="relative aspect-video w-full overflow-hidden">
+						<video id="player" class="w-full h-full object-contain" controls playsinline preload="metadata"></video>
+					</div>
+				</div>
+
+				<!-- Video Info Bar -->
+				<div class="py-3">
+					<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+						<div class="flex-1 min-w-0">
+							<h1 id="nowPlaying" class="text-lg font-semibold text-yt-text leading-snug line-clamp-2"></h1>
+							<div class="flex items-center gap-3 mt-1.5">
+								<div id="nowChannel" class="text-sm text-yt-text-secondary hover:text-yt-text transition-colors cursor-default"></div>
+							</div>
+						</div>
+						<div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+							<div id="playerModeSwitch" class="player-mode-switch" role="group" aria-label="Player view mode">
+								<button type="button" class="player-mode-btn is-active" data-mode="normal" title="Normal mode">
+									<i class="fa-solid fa-table-cells-large text-xs"></i>
+									<span>Normal</span>
+								</button>
+								<button type="button" class="player-mode-btn" data-mode="theater" title="Theater mode">
+									<i class="fa-solid fa-film text-xs"></i>
+									<span>Theater</span>
+								</button>
+							</div>
+							<button type="button" id="theaterCommentsToggle" class="theater-comments-toggle" title="Collapse comments in theater mode" aria-label="Collapse comments in theater mode" aria-pressed="false">
+								<i class="fa-solid fa-comments text-xs"></i>
+								<span>Comments</span>
+							</button>
+							<select id="videoResolution" class="hidden h-9 px-3 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text border-none outline-none cursor-pointer transition-colors duration-200" title="Resolution"></select>
+							<a id="openStream" class="inline-flex items-center gap-2 h-9 px-4 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text transition-colors duration-200" href="#" target="_blank" rel="noopener">
+								<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+								Open stream
+							</a>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<aside class="watch-comments-pane">
+				{% if playlist_id and playlist_items|length > 0 %}
+				<!-- Playlist sidebar -->
+				<div class="comments-panel mb-4">
+					<div class="comments-panel-head">
+						<div class="comments-panel-title-wrap">
+							<h2 class="comments-panel-title">Playlist</h2>
+							<div class="text-xs text-yt-text-secondary mt-0.5">{{ playlist_items|length }} videos</div>
+						</div>
+					</div>
+					<div class="overflow-auto max-h-[300px] p-2">
+						{% for item in playlist_items %}
+						<a href="/watch?v={{ item.id }}&list={{ playlist_id }}&index={{ loop.index0 }}"
+						   class="flex gap-2 p-2 rounded-lg hover:bg-yt-bg-hover transition-colors {{ 'bg-yt-bg-hover' if item.id == video_id else '' }}">
+							<div class="text-xs text-yt-text-secondary w-5 flex-shrink-0 pt-1 text-right">{{ loop.index }}</div>
+							<div class="w-24 flex-shrink-0">
+								<div class="aspect-video rounded-md overflow-hidden bg-yt-bg-elevated">
+									<img loading="lazy" src="/api/thumb/{{ item.id }}?q=mq" alt="" class="w-full h-full object-cover" />
+								</div>
+							</div>
+							<div class="flex-1 min-w-0">
+								<div class="text-xs font-medium text-yt-text line-clamp-2">{{ item.title }}</div>
+								{% if item.channel %}
+								<div class="text-[10px] text-yt-text-secondary mt-0.5">{{ item.channel }}</div>
+								{% endif %}
+								{% if item.duration %}
+								<div class="text-[10px] text-yt-text-secondary mt-0.5">{{ item.duration }}</div>
+								{% endif %}
+							</div>
+						</a>
+						{% endfor %}
+					</div>
+				</div>
+				{% endif %}
+
+				<!-- Comments panel -->
+				<div class="comments-panel">
+					<div class="comments-panel-head">
+						<div class="comments-panel-title-wrap">
+							<h2 class="comments-panel-title">Comments</h2>
+							<div id="commentsCount" class="comments-panel-count"></div>
+						</div>
+						<div class="comments-head-controls">
+							<select id="commentsLimit" class="yt-select comments-limit" title="Comments to fetch">
+								<option value="10">10</option>
+								<option value="20">20</option>
+								<option value="50" selected>50</option>
+								<option value="70">70</option>
+								<option value="100">100</option>
+							</select>
+							<select id="commentsSort" class="yt-select comments-sort" title="Comment sort">
+								<option value="top">Top</option>
+								<option value="new">Newest</option>
+							</select>
+						</div>
+					</div>
+					<div id="commentsState" class="comments-state">Loading comments...</div>
+					<div id="commentsList" class="comments-list"></div>
+				</div>
+			</aside>
+		</div>
+	</div>
+</div>

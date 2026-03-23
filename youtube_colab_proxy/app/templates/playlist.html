@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "partials/video_card.html" import video_card %}
+{% from "partials/pagination.html" import pagination %}
+
+{% block title %}{{ playlist_title or "Playlist" }} - YouTube Proxy{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto px-4 pb-8">
+	{% if error %}
+	<div class="flex items-center gap-3 p-4 rounded-xl bg-yt-red/10 border border-yt-red/20 my-6">
+		<i class="fa-solid fa-triangle-exclamation text-yt-red"></i>
+		<p class="text-sm text-yt-text">{{ error }}</p>
+	</div>
+	{% endif %}
+
+	<!-- Playlist Header -->
+	<div class="flex items-start gap-4 py-6 border-b border-yt-divider mb-6">
+		<div class="w-12 h-12 bg-yt-bg-elevated rounded-xl flex items-center justify-center flex-shrink-0">
+			<i class="fa-solid fa-list text-yt-blue text-lg"></i>
+		</div>
+		<div class="flex-1 min-w-0">
+			<h1 class="text-xl font-semibold text-yt-text line-clamp-2">{{ playlist_title or "Playlist" }}</h1>
+			{% if playlist_channel %}
+			<p class="text-sm text-yt-text-secondary mt-1">{{ playlist_channel }}</p>
+			{% endif %}
+			<p class="text-xs text-yt-text-secondary mt-1">
+				{{ total }} video{{ "s" if total != 1 else "" }}
+				{% if total_pages > 1 %} &middot; Page {{ page }} / {{ total_pages }}{% endif %}
+			</p>
+		</div>
+		{% if playlist_id %}
+		<a href="https://www.youtube.com/playlist?list={{ playlist_id }}" target="_blank" rel="noopener"
+		   class="yt-btn-secondary gap-2 flex-shrink-0">
+			<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+			YouTube
+		</a>
+		{% endif %}
+	</div>
+
+	{% if items %}
+	<!-- Playlist Video List -->
+	<div class="space-y-3">
+		{% for item in items %}
+		{% set global_idx = (page - 1) * items|length + loop.index0 %}
+		<a href="/watch?v={{ item.id }}&list={{ playlist_id }}&index={{ global_idx }}"
+		   class="flex gap-3 p-3 rounded-xl hover:bg-yt-bg-elevated border border-transparent hover:border-yt-divider transition-all group">
+			<div class="text-sm text-yt-text-secondary w-8 flex-shrink-0 pt-4 text-center font-medium">
+				{{ (page - 1) * (items|length) + loop.index }}
+			</div>
+			<div class="w-40 sm:w-48 flex-shrink-0">
+				<div class="aspect-video rounded-lg overflow-hidden bg-yt-bg-secondary">
+					<img loading="lazy" src="/api/thumb/{{ item.id }}?q=hq" alt="{{ item.title }}"
+						 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+				</div>
+			</div>
+			<div class="flex-1 min-w-0 py-1">
+				<h3 class="text-sm font-medium text-yt-text line-clamp-2 group-hover:text-white">{{ item.title }}</h3>
+				{% if item.channel %}
+				<p class="text-xs text-yt-text-secondary mt-1">{{ item.channel }}</p>
+				{% endif %}
+				{% if item.duration %}
+				<p class="text-xs text-yt-text-secondary mt-1">{{ item.duration }}</p>
+				{% endif %}
+			</div>
+		</a>
+		{% endfor %}
+	</div>
+
+	<!-- Pagination -->
+	{{ pagination(base_url="/playlist?list=" ~ playlist_id, page=page, total_pages=total_pages) }}
+
+	{% elif not error %}
+	<div class="flex flex-col items-center justify-center py-16">
+		<div class="w-16 h-16 bg-yt-bg-secondary rounded-full flex items-center justify-center mb-4">
+			<i class="fa-solid fa-list text-yt-text-secondary text-xl"></i>
+		</div>
+		<h2 class="text-lg font-medium text-yt-text mb-1">No videos found</h2>
+		<p class="text-sm text-yt-text-secondary">This playlist appears to be empty or unavailable.</p>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

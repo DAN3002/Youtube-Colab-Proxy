@@ -1,0 +1,43 @@
+<!-- Header / Top Bar -->
+<header id="siteHeader" class="sticky top-0 z-50 bg-yt-bg/95 backdrop-blur-lg border-b border-yt-divider transition-all duration-300">
+	<div class="max-w-[1400px] mx-auto px-4 h-14 flex items-center gap-4">
+		<!-- Logo -->
+		<a href="/" class="flex items-center gap-1.5 flex-shrink-0 group" title="YouTube Proxy Player">
+			<div class="relative">
+				<div class="w-8 h-8 bg-yt-red rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+					<i class="fa-brands fa-youtube text-white text-sm"></i>
+				</div>
+				<div class="absolute inset-0 bg-yt-red rounded-lg opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300"></div>
+			</div>
+			<span class="font-semibold text-yt-text hidden sm:inline tracking-tight">Proxy</span>
+		</a>
+
+		<!-- Search Bar -->
+		<div class="flex-1 flex items-center justify-center max-w-2xl mx-auto">
+			<form id="searchForm" class="flex items-center w-full group" action="/results" method="get" onsubmit="return handleSearchSubmit(event)">
+				<div class="relative flex-1">
+					<input id="q" name="search_query" type="text"
+						placeholder="Search or paste YouTube link"
+						value="{{ query|default('', true) }}"
+						class="w-full h-10 pl-4 pr-10 bg-yt-bg border border-[#303030] rounded-l-full text-sm text-yt-text placeholder-yt-text-secondary focus:outline-none focus:border-yt-blue focus:ring-1 focus:ring-yt-blue/50 transition-all duration-200" />
+					<button type="button" id="btnClearSearch" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full hover:bg-yt-bg-hover flex items-center justify-center text-yt-text-secondary opacity-0 transition-all duration-200 pointer-events-none" title="Clear">
+						<i class="fa-solid fa-xmark text-xs"></i>
+					</button>
+				</div>
+				<button type="submit" id="btnGo" class="h-10 px-5 bg-yt-bg-secondary hover:bg-yt-bg-hover border border-l-0 border-[#303030] rounded-r-full text-yt-text-secondary transition-colors duration-200" title="Search">
+					<i class="fa-solid fa-magnifying-glass text-sm"></i>
+				</button>
+			</form>
+		</div>
+
+		<!-- Right Actions -->
+		<div class="flex items-center gap-1 flex-shrink-0">
+			<a id="btnFaq" class="w-10 h-10 rounded-full hover:bg-yt-bg-hover flex items-center justify-center text-yt-text-secondary hover:text-yt-text transition-colors duration-200" title="FAQ" href="{{ faq_url }}" target="_blank" rel="noopener">
+				<i class="fa-regular fa-circle-question text-lg"></i>
+			</a>
+			<button id="btnSettings" class="w-10 h-10 rounded-full hover:bg-yt-bg-hover flex items-center justify-center text-yt-text-secondary hover:text-yt-text transition-colors duration-200" title="Settings">
+				<i class="fa-solid fa-gear text-lg"></i>
+			</button>
+		</div>
+	</div>
+</header>

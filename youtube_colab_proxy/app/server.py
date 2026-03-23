@@ -1,17 +1,23 @@
 from typing import Tuple, Optional
 import threading
+import time
 
 import portpicker
+import uvicorn
 
 
-def start_flask_in_thread(app, host: str = "0.0.0.0", port: Optional[int] = None) -> Tuple[int, threading.Thread]:
-	"""Start the given Flask app in a background thread, returning (port, thread)."""
+def start_server_in_thread(app, host: str = "0.0.0.0", port: Optional[int] = None) -> Tuple[int, threading.Thread]:
+	"""Start the given FastAPI app with uvicorn in a background thread, returning (port, thread)."""
 	if port is None:
 		port = portpicker.pick_unused_port()
 
-	thread = threading.Thread(
-		target=lambda: app.run(host=host, port=port, debug=False, use_reloader=False),
-		daemon=True,
-	)
+	config = uvicorn.Config(app, host=host, port=port, log_level="warning")
+	server = uvicorn.Server(config)
+
+	thread = threading.Thread(target=server.run, daemon=True)
 	thread.start()
-	return port, thread 
+
+	# Wait briefly for the server to start
+	time.sleep(1.0)
+
+	return port, thread
