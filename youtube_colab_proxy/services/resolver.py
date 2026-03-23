@@ -55,6 +55,7 @@ def resolve_direct_media(watch_url: str, max_height: int = 720) -> Tuple[str, Di
 			f"best[height<={max_height}]"
 		),
 		"noplaylist": True,
+		"js_runtimes": {"deno": {}, "node": {}},
 	}
 	if _COOKIEFILE:
 		ydl_opts["cookiefile"] = _COOKIEFILE
@@ -79,6 +80,7 @@ def resolve_direct_media(watch_url: str, max_height: int = 720) -> Tuple[str, Di
 			"quiet": True,
 			"nocheckcertificate": True,
 			"noplaylist": True,
+			"js_runtimes": {"deno": {}, "node": {}},
 		}
 		# Preserve cookies/headers in fallback
 		if _COOKIEFILE:
@@ -152,6 +154,7 @@ def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort:
 		"noplaylist": True,
 		"extract_flat": False,
 		"getcomments": True,
+		"js_runtimes": {"deno": {}, "node": {}},
 		"extractor_args": {
 			"youtube": {
 				"comment_sort": [sort_mode],

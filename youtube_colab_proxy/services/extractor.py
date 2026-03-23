@@ -31,6 +31,7 @@ def extract_direct_media(youtube_url: str) -> Tuple[str, Dict[str, str]]:
 		"nocheckcertificate": True,
 		"format": "bestvideo[ext=mp4][height<=720][vcodec!=none]+bestaudio[acodec!=none]/best[ext=mp4][height<=720]",
 		"noplaylist": True,
+		"js_runtimes": {"deno": {}, "node": {}},
 	}
 
 	try:
@@ -42,6 +43,7 @@ def extract_direct_media(youtube_url: str) -> Tuple[str, Dict[str, str]]:
 			"quiet": True,
 			"nocheckcertificate": True,
 			"noplaylist": True,
+			"js_runtimes": {"deno": {}, "node": {}},
 		}
 		with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
 			info = ydl.extract_info(youtube_url, download=False)

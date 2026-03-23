@@ -106,6 +106,7 @@ def build_ydl_base_opts() -> Dict:
 			"Accept-Language": _const.YT_LANG,
 		},
 		"geo_bypass_country": _const.YT_GEO_BYPASS_COUNTRY,
+		"js_runtimes": {"deno": {}, "node": {}},
 	}
 	if _const.OUTBOUND_PROXY:
 		opts["proxy"] = _const.OUTBOUND_PROXY
