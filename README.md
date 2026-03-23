@@ -11,13 +11,6 @@ A feature-rich YouTube streaming proxy with a built-in web player. Watch videos,
 
 ## ✨ Features
 
-### Video Streaming
-- **Proxy-based playback** — streams MP4 bytes directly, no client-side extraction
-- **HLS live stream support** via [Streamlink](https://streamlink.github.io/) (Twitch, Kick, and more)
-- **Range requests** for instant seeking and partial content delivery
-- **Resolution selector** — choose quality or let auto-select pick the best available
-- **Theater & normal modes** with keyboard shortcuts (Space, J/L, F)
-
 ### Search & Discovery
 - **YouTube search** with paginated results
 - **Channel pages** — Videos tab, Playlists tab, and in-channel search
@@ -101,75 +94,6 @@ url = youtube_colab_proxy.start(cookies_str="YOUR_COOKIE_STRING")
 ```
 
 > **Note:** `apt-get install nodejs` provides the JS runtime that yt-dlp needs. Without it, some video formats may be missing.
-
-## 🗂️ Project Structure
-
-```
-youtube_colab_proxy/
-├── cli.py                  # ycp CLI entry point
-├── core.py                 # Bootstrap: create app, start server
-├── const.py                # Configuration constants
-├── app/
-│   ├── __init__.py         # FastAPI app factory
-│   ├── server.py           # Uvicorn-in-thread launcher
-│   ├── dependencies.py     # Shared utils (templates, thumbnails, URL helpers)
-│   ├── routes/
-│   │   ├── api.py          # /api/* JSON endpoints
-│   │   ├── pages.py        # SSR HTML pages (/, /results, /watch, /playlist, /channel)
-│   │   ├── stream.py       # /stream video proxy (Range support)
-│   │   └── streamlink.py   # /streamlink/* live stream proxy (HLS rewriting)
-│   ├── static/             # CSS + JS (utils, app, player, comments, channel)
-│   └── templates/          # Jinja2 templates (base, home, search, watch, playlist, channel)
-├── services/
-│   ├── resolver.py         # yt-dlp media resolution + comment fetching (cached)
-│   ├── extractor.py        # Format selection (progressive MP4 picker)
-│   └── streamlink_resolver.py  # Streamlink integration + HLS manifest rewriting
-├── integrations/
-│   └── colab.py            # Google Colab proxy URL + display helpers
-└── utils/
-    ├── input.py            # YouTube URL normalization + ID regex
-    └── security.py         # SHA256 password hashing
-```
-
-## 📡 API Reference
-
-### Pages (HTML)
-
-| Route | Description |
-|-------|-------------|
-| `GET /` | Homepage — search, suggestions, watch history |
-| `GET /results?search_query=...&page=` | Search results |
-| `GET /watch?v={id}&list={pl}&index=` | Video player |
-| `GET /playlist?list={id}&page=` | Playlist view |
-| `GET /channel/{handle}` | Channel page (CSR) |
-
-### Stream
-
-| Route | Description |
-|-------|-------------|
-| `GET /stream?id={id}&h={height}` | Proxy YouTube video as MP4 (supports Range) |
-| `GET /streamlink?url={url}&quality=` | Proxy live stream bytes |
-| `GET /streamlink/hls?url={url}&quality=` | HLS manifest proxy with rewritten segment URLs |
-
-### JSON API
-
-| Route | Description |
-|-------|-------------|
-| `GET /api/version` | App version |
-| `GET /api/search?q=...&page=` | Search YouTube |
-| `GET /api/playlist?url=...&page=` | Playlist entries |
-| `GET /api/formats?id={id}` | Available resolutions |
-| `GET /api/video-info?id={id}` | Full metadata + formats + recommendations |
-| `GET /api/comments?id={id}&sort=&limit=` | Top-level comments |
-| `GET /api/replies?id={id}&comment_id=...` | Replies to a comment |
-| `GET /api/channel/info?handle=` | Channel metadata (title, avatar, banner) |
-| `GET /api/channel/videos?handle=&page=` | Paginated channel videos |
-| `GET /api/channel/playlists?handle=&page=` | Paginated channel playlists |
-| `GET /api/channel/search?handle=&q=&page=` | Search within a channel |
-| `GET /api/thumb/{vid}?q={quality}` | Proxied video thumbnail |
-| `GET /api/image-proxy?u={url}` | General image proxy |
-| `GET /api/streamlink/sites` | Supported live-stream sites |
-| `GET /api/streamlink/info?url=` | Live stream info + qualities |
 
 ## ⚙️ Configuration
 
