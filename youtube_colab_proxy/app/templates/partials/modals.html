@@ -46,6 +46,20 @@
 					<option value="144">144p</option>
 				</select>
 			</label>
+			<!-- Watch History -->
+			<div class="block">
+				<span class="text-sm font-medium text-yt-text mb-2 block">Watch history</span>
+				<div class="flex items-center justify-between bg-yt-bg rounded-xl px-4 py-3 border border-yt-divider">
+					<div class="flex items-center gap-2.5">
+						<i class="fa-solid fa-clock-rotate-left text-yt-text-secondary text-sm"></i>
+						<span id="settingsHistoryCount" class="text-sm text-yt-text-secondary">0 videos</span>
+					</div>
+					<button id="settingsClearHistory"
+						class="text-xs font-medium text-yt-red hover:text-yt-red-hover transition-colors px-2.5 py-1 rounded-md hover:bg-yt-red/10">
+						Clear all
+					</button>
+				</div>
+			</div>
 		</div>
 		<div class="flex justify-end gap-3 mt-6">
 			<button id="settingsCancel" class="yt-btn-secondary">Cancel</button>

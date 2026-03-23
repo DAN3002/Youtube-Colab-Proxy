@@ -5,7 +5,7 @@
 {% block content %}
 <div class="max-w-[1400px] mx-auto px-4 pb-8">
 	<!-- Welcome / Hero State -->
-	<div class="flex flex-col items-center justify-center py-20 animate-fade-in">
+	<div class="flex flex-col items-center justify-center py-16 animate-fade-in">
 		<div class="w-20 h-20 bg-yt-red/10 rounded-full flex items-center justify-center mb-6 animate-pulse-glow">
 			<i class="fa-brands fa-youtube text-yt-red text-4xl"></i>
 		</div>
@@ -37,7 +37,7 @@
 		</div>
 
 		<!-- Quick Actions -->
-		<div class="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full">
+		<div class="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full">
 			<div class="bg-yt-bg-elevated border border-yt-divider rounded-xl p-5 text-center hover:border-yt-blue/30 transition-colors">
 				<div class="w-10 h-10 bg-yt-red/10 rounded-full flex items-center justify-center mx-auto mb-3">
 					<i class="fa-solid fa-magnifying-glass text-yt-red text-sm"></i>
@@ -61,5 +61,116 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Watch History Section -->
+	<div id="watchHistorySection" class="hidden animate-fade-in pb-8">
+		<div class="flex items-center justify-between mb-5">
+			<div class="flex items-center gap-3">
+				<div class="w-9 h-9 bg-yt-blue/10 rounded-full flex items-center justify-center">
+					<i class="fa-solid fa-clock-rotate-left text-yt-blue text-sm"></i>
+				</div>
+				<div>
+					<h2 class="text-lg font-medium text-yt-text">Watch History</h2>
+					<p id="historyCount" class="text-xs text-yt-text-secondary mt-0.5"></p>
+				</div>
+			</div>
+			<button id="btnClearHistory"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yt-text-secondary
+				       bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full transition-colors border border-yt-divider
+				       hover:text-yt-text hover:border-yt-text-secondary/30">
+				<i class="fa-solid fa-trash-can text-[10px]"></i>
+				Clear
+			</button>
+		</div>
+		<div id="watchHistoryGrid"
+			 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-6">
+		</div>
+	</div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+	document.addEventListener('DOMContentLoaded', () => {
+		const history = loadWatchHistory();
+		if (!history || history.length === 0) return;
+
+		const section = document.getElementById('watchHistorySection');
+		const grid = document.getElementById('watchHistoryGrid');
+		const countEl = document.getElementById('historyCount');
+		if (!section || !grid) return;
+
+		// Show latest 8
+		const items = history.slice(0, 8);
+		const totalCount = history.length;
+
+		if (countEl) {
+			countEl.textContent = totalCount === 1
+				? '1 video watched'
+				: `${totalCount} videos watched`;
+		}
+
+		let html = '';
+		for (const item of items) {
+			const thumb = item.thumb || `/api/thumb/${escapeHtml(item.id)}?q=hq`;
+			const dur = item.duration || '';
+			const title = item.title || 'Untitled';
+			const channel = item.channel || '';
+			const watchedAt = item.watchedAt;
+
+			// Relative time since watched
+			let timeAgo = '';
+			if (watchedAt) {
+				const diffMs = Date.now() - watchedAt;
+				const diffSec = Math.floor(diffMs / 1000);
+				if (diffSec < 60) timeAgo = 'just now';
+				else if (diffSec < 3600) timeAgo = `${Math.floor(diffSec / 60)}m ago`;
+				else if (diffSec < 86400) timeAgo = `${Math.floor(diffSec / 3600)}h ago`;
+				else if (diffSec < 86400 * 30) timeAgo = `${Math.floor(diffSec / 86400)}d ago`;
+				else timeAgo = `${Math.floor(diffSec / (86400 * 30))}mo ago`;
+			}
+
+			html += `
+				<a href="/watch?v=${escapeHtml(item.id)}" class="group block rounded-xl overflow-hidden transition-transform hover:scale-[1.02]">
+					<div class="relative aspect-video rounded-xl overflow-hidden bg-yt-bg-elevated">
+						<img loading="lazy"
+							 src="${escapeHtml(thumb)}"
+							 alt="${escapeHtml(title)}"
+							 class="w-full h-full object-cover transition-opacity group-hover:opacity-90" />
+						${dur ? `<span class="absolute bottom-1.5 right-1.5 bg-black/80 text-white text-[11px] font-medium px-1.5 py-0.5 rounded-md">${escapeHtml(dur)}</span>` : ''}
+						<!-- Watched overlay indicator -->
+						<div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+						<div class="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+							<i class="fa-solid fa-clock-rotate-left text-[8px]"></i>
+							${escapeHtml(timeAgo)}
+						</div>
+					</div>
+					<div class="mt-2.5 px-0.5">
+						<div class="text-sm font-medium text-yt-text line-clamp-2 leading-snug group-hover:text-yt-blue transition-colors">
+							${escapeHtml(title)}
+						</div>
+						${channel ? `<div class="text-xs text-yt-text-secondary mt-1 truncate">${escapeHtml(channel)}</div>` : ''}
+					</div>
+				</a>
+			`;
+		}
+
+		grid.innerHTML = html;
+		section.classList.remove('hidden');
+
+		// Clear history button
+		const clearBtn = document.getElementById('btnClearHistory');
+		if (clearBtn) {
+			clearBtn.addEventListener('click', () => {
+				if (confirm('Clear all watch history?')) {
+					clearWatchHistory();
+					section.classList.add('hidden');
+					showToast('Watch history cleared');
+				}
+			});
+		}
+	});
+})();
+</script>
 {% endblock %}

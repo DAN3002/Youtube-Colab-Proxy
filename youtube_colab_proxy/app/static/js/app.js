@@ -91,12 +91,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
+	const updateHistoryCountInSettings = () => {
+		const countEl = $('#settingsHistoryCount');
+		if (countEl) {
+			const h = loadWatchHistory();
+			const n = h.length;
+			countEl.textContent = n === 0 ? 'No videos' : n === 1 ? '1 video' : `${n} videos`;
+		}
+	};
+
 	const openSettings = () => {
 		const app = loadAppSettings();
 		const sel = $('#optOnEnd');
 		if (sel) sel.value = app.onEnd || 'stop';
 		const resSel = $('#optResolution');
 		if (resSel) resSel.value = String(app.resolution ?? 0);
+		updateHistoryCountInSettings();
 		showModal($('#settingsModal'));
 	};
 
@@ -120,6 +130,16 @@ document.addEventListener('DOMContentLoaded', () => {
 		saveAppSettings({ ...app, onEnd, resolution });
 		closeSettings();
 		showToast('Settings saved');
+	});
+
+	// Clear watch history from settings modal
+	$('#settingsClearHistory')?.addEventListener('click', () => {
+		clearWatchHistory();
+		updateHistoryCountInSettings();
+		// Also hide the history section on the home page if visible
+		const histSection = $('#watchHistorySection');
+		if (histSection) histSection.classList.add('hidden');
+		showToast('Watch history cleared');
 	});
 });
 

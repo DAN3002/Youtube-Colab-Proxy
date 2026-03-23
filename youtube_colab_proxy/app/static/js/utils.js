@@ -176,6 +176,83 @@ const openModal = (msg) => {
 const closeModal = () => { hideModal($('#modal')); };
 
 // ---------------------------------------------------------------------------
+// Watch History (persisted to localStorage + cookie)
+// ---------------------------------------------------------------------------
+
+const WATCH_HISTORY_KEY = 'ycp_watch_history_v1';
+const MAX_HISTORY_ITEMS = 50;
+
+/**
+ * Load watch history array from storage.
+ * Each entry: { id, title, channel, duration, thumb, watchedAt }
+ */
+const loadWatchHistory = () => {
+	try {
+		const raw = localStorage.getItem(WATCH_HISTORY_KEY);
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			if (Array.isArray(parsed)) return parsed;
+		}
+	} catch {}
+	try {
+		const c = _getCookie(WATCH_HISTORY_KEY);
+		if (c) {
+			const parsed = JSON.parse(c);
+			if (Array.isArray(parsed)) return parsed;
+		}
+	} catch {}
+	return [];
+};
+
+/**
+ * Save watch history to localStorage + cookie.
+ * Cookie holds a compact version (just ids + timestamps) due to size limits.
+ */
+const saveWatchHistory = (history) => {
+	const trimmed = (history || []).slice(0, MAX_HISTORY_ITEMS);
+	try { localStorage.setItem(WATCH_HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
+	// Cookie has ~4KB limit, store compact version with essential fields only
+	try {
+		const compact = trimmed.slice(0, 20).map(h => ({
+			id: h.id,
+			title: (h.title || '').substring(0, 60),
+			channel: (h.channel || '').substring(0, 30),
+			duration: h.duration || '',
+			watchedAt: h.watchedAt,
+		}));
+		_setCookie(WATCH_HISTORY_KEY, JSON.stringify(compact), 365);
+	} catch {}
+};
+
+/**
+ * Add a video to watch history. Deduplicates by video ID (moves to front).
+ */
+const addToWatchHistory = (video) => {
+	if (!video || !video.id) return;
+	const history = loadWatchHistory();
+	// Remove existing entry with same ID
+	const filtered = history.filter(h => h.id !== video.id);
+	// Add to front
+	filtered.unshift({
+		id: video.id,
+		title: video.title || '',
+		channel: video.channel || '',
+		duration: video.duration || '',
+		thumb: video.thumb || `/api/thumb/${video.id}?q=hq`,
+		watchedAt: Date.now(),
+	});
+	saveWatchHistory(filtered);
+};
+
+/**
+ * Clear all watch history.
+ */
+const clearWatchHistory = () => {
+	try { localStorage.removeItem(WATCH_HISTORY_KEY); } catch {}
+	_setCookie(WATCH_HISTORY_KEY, '[]', 365);
+};
+
+// ---------------------------------------------------------------------------
 // URL detection helpers
 // ---------------------------------------------------------------------------
 

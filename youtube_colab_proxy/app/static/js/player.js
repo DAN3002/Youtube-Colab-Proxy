@@ -369,6 +369,14 @@ const playById = (id, title, channel = '') => {
 
 			currentVideoInfo = data;
 
+			// Record to watch history
+			addToWatchHistory({
+				id: id,
+				title: data.title || title,
+				channel: data.channel || channel,
+				duration: formatDuration(data.duration || ''),
+			});
+
 			// Update title
 			const videoTitle = data.title || title;
 			const videoChannel = data.channel || channel;
