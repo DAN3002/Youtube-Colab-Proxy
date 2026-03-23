@@ -436,7 +436,7 @@ a {
 .watch-layout {
 	display: flex;
 	align-items: flex-start;
-	gap: 24px;
+	gap: 16px;
 }
 
 .watch-primary {
@@ -445,8 +445,8 @@ a {
 }
 
 .watch-secondary {
-	flex: 0 0 402px;
-	max-width: 402px;
+	flex: 0 0 380px;
+	max-width: 380px;
 	min-width: 0;
 	position: sticky;
 	top: 16px;
@@ -454,18 +454,16 @@ a {
 	overflow-y: auto;
 }
 
-/* Theater mode: full-width stacked */
-body.player-mode-theater .watch-layout {
-	flex-direction: column;
-	gap: 14px;
+/* Theater mode: player goes full-width above, info+comments and sidebar stay side-by-side below */
+body.player-mode-theater #theaterPlayer {
+	display: block;
 }
 
-body.player-mode-theater .watch-primary,
+body.player-mode-theater #normalPlayerBox {
+	display: none;
+}
+
 body.player-mode-theater .watch-secondary {
-	flex: 1 1 auto;
-	max-width: 100%;
-	width: 100%;
-	min-width: 0;
 	position: static;
 	max-height: none;
 }
@@ -474,6 +472,7 @@ body.player-mode-theater .comments-panel {
 	max-height: none;
 }
 
+/* Sidebar collapse in theater mode */
 body.player-mode-theater.theater-comments-collapsed .watch-secondary {
 	display: none;
 }
@@ -668,10 +667,10 @@ body.player-mode-theater.theater-comments-collapsed .watch-primary {
 /* === Responsive adjustments === */
 
 /* Tablet: narrower sidebar */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
 	.watch-secondary {
-		flex: 0 0 340px;
-		max-width: 340px;
+		flex: 0 0 320px;
+		max-width: 320px;
 	}
 }
 
@@ -827,7 +826,7 @@ select:focus-visible {
 }
 
 /* Responsive: recommendation thumbs */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
 	.rec-thumb {
 		width: 140px;
 	}

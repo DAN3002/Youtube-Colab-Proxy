@@ -1,7 +1,7 @@
 {#
   Video player – YouTube-like layout.
   Normal mode: Left = player + info + comments, Right = up-next recommendations.
-  Theater mode: full-width player, then content below.
+  Theater mode: full-width player on top, then two-column below (info+comments | recommendations).
 
   Expects:
     video_id  – the YouTube video ID to play
@@ -12,12 +12,21 @@
 
 <!-- Player Section -->
 <div id="playerWrap" class="animate-fade-in">
-	<div class="max-w-[1400px] mx-auto px-4 py-4">
+	<!-- Theater-mode player sits in its own full-width row -->
+	<div id="theaterPlayer" class="hidden">
+		<div class="bg-black border-b border-yt-divider">
+			<div class="relative aspect-video w-full max-h-[80vh] overflow-hidden">
+				<!-- Video element is moved here via JS in theater mode -->
+			</div>
+		</div>
+	</div>
+
+	<div class="max-w-[1800px] mx-auto px-6 py-4 xl:px-10">
 		<div class="watch-layout">
 			<!-- ============ LEFT COLUMN ============ -->
 			<div class="watch-primary">
-				<!-- Video player -->
-				<div class="bg-black rounded-xl overflow-hidden border border-yt-divider">
+				<!-- Video player (normal mode – lives here; theater mode – moved to #theaterPlayer) -->
+				<div id="normalPlayerBox" class="bg-black rounded-xl overflow-hidden border border-yt-divider">
 					<div class="relative aspect-video w-full overflow-hidden">
 						<video id="player" class="w-full h-full object-contain" controls playsinline preload="metadata"></video>
 					</div>
@@ -52,9 +61,9 @@
 								<span>Theater</span>
 							</button>
 						</div>
-						<button type="button" id="theaterCommentsToggle" class="theater-comments-toggle" title="Collapse comments in theater mode" aria-label="Collapse comments in theater mode" aria-pressed="false">
+						<button type="button" id="theaterCommentsToggle" class="theater-comments-toggle" title="Hide sidebar" aria-label="Hide sidebar" aria-pressed="false">
 							<i class="fa-solid fa-comments text-xs"></i>
-							<span>Comments</span>
+							<span>Hide sidebar</span>
 						</button>
 
 						<!-- Quality selector -->
@@ -84,7 +93,7 @@
 				<!-- Divider -->
 				<div class="border-t border-yt-divider mt-4"></div>
 
-				<!-- Comments section (below player, like YouTube) -->
+				<!-- Comments section (below player info, like YouTube) -->
 				<div id="commentsSection" class="mt-4">
 					<div class="flex items-center justify-between gap-3 mb-4">
 						<div>
@@ -146,7 +155,7 @@
 				</div>
 				{% endif %}
 
-				<!-- Recommendations / Up next (clean list, no panel box) -->
+				<!-- Recommendations / Up next -->
 				<div id="recommendationsPanel" class="hidden">
 					<!-- Skeleton loaders while fetching -->
 					<div id="recsLoading" class="space-y-3">

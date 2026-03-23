@@ -28,13 +28,27 @@ const applyTheaterCommentsCollapse = () => {
 	body.classList.toggle('theater-comments-collapsed', inTheater && collapsed);
 	const btn = $('#theaterCommentsToggle');
 	if (btn instanceof HTMLButtonElement) {
-		btn.disabled = !inTheater;
-		btn.setAttribute('aria-disabled', !inTheater ? 'true' : 'false');
 		const pressed = inTheater && collapsed;
 		btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-		btn.title = pressed ? 'Show comments in theater mode' : 'Collapse comments in theater mode';
+		btn.title = pressed ? 'Show sidebar' : 'Hide sidebar';
 		const label = btn.querySelector('span');
-		if (label) label.textContent = pressed ? 'Show comments' : 'Hide comments';
+		if (label) label.textContent = pressed ? 'Show sidebar' : 'Hide sidebar';
+	}
+};
+
+const movePlayerToTheater = () => {
+	const video = $('#player');
+	const theaterTarget = document.querySelector('#theaterPlayer .aspect-video');
+	if (video && theaterTarget && !theaterTarget.contains(video)) {
+		theaterTarget.appendChild(video);
+	}
+};
+
+const movePlayerToNormal = () => {
+	const video = $('#player');
+	const normalTarget = document.querySelector('#normalPlayerBox .aspect-video');
+	if (video && normalTarget && !normalTarget.contains(video)) {
+		normalTarget.appendChild(video);
 	}
 };
 
@@ -46,6 +60,14 @@ const setPlayerMode = (mode) => {
 	currentPlayerMode = normalizedMode;
 	setPlayerModeUI(normalizedMode);
 	savePlayerMode(normalizedMode);
+
+	// Move video element between containers
+	if (normalizedMode === 'theater') {
+		movePlayerToTheater();
+	} else {
+		movePlayerToNormal();
+	}
+
 	applyTheaterCommentsCollapse();
 };
 
