@@ -774,6 +774,69 @@ select:focus-visible {
 	min-height: 60px;
 }
 
+/* View replies button */
+.comment-replies-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px 4px 8px;
+	margin-left: -8px;
+	border: none;
+	border-radius: 9999px;
+	background: transparent;
+	color: #3ea6ff;
+	font-size: 12px;
+	font-weight: 500;
+	font-family: inherit;
+	cursor: pointer;
+	transition: background-color 0.15s;
+	white-space: nowrap;
+}
+
+.comment-replies-btn:hover {
+	background: rgba(62, 166, 255, 0.12);
+}
+
+.comment-replies-btn i {
+	font-size: 11px;
+}
+
+/* Comment badges (pinned, hearted) */
+.comment-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	color: #aaaaaa;
+	font-weight: 400;
+}
+
+.comment-badge-heart {
+	color: #ff4444;
+}
+
+/* Replies container */
+.comment-replies-wrap {
+	margin-top: 6px;
+	padding-left: 12px;
+	border-left: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.comment-replies-wrap .comment-item-reply {
+	padding: 8px 0;
+	border-bottom: none;
+}
+
+.comment-replies-wrap .comment-item-reply .comment-avatar {
+	width: 24px;
+	height: 24px;
+}
+
+.comment-replies-wrap .comment-item-reply .comment-text {
+	font-size: 12px;
+	line-height: 1.4;
+}
+
 /* === Recommendation items in sidebar === */
 .rec-item {
 	display: flex;

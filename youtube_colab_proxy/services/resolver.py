@@ -114,9 +114,8 @@ def resolve_direct_media(watch_url: str, max_height: int = 720) -> Tuple[str, Di
 	if not direct_url:
 		raise RuntimeError("No progressive MP4 found. Try a lower quality.")
 
-	# Keep lightweight metadata from stream extraction for potential reuse.
+	# Keep timestamp for potential reuse (comments are fetched separately now).
 	VIDEO_INFO_CACHE[watch_url] = {
-		"comments": info.get("comments") or [],
 		"ts": now,
 	}
 
@@ -124,27 +123,38 @@ def resolve_direct_media(watch_url: str, max_height: int = 720) -> Tuple[str, Di
 	return direct_url, headers 
 
 
-def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort: str = "top") -> List[Dict[str, Any]]:
+def fetch_youtube_comments(
+	watch_url: str,
+	max_comments: int = 20,
+	comment_sort: str = "top",
+	include_replies: bool = False,
+) -> List[Dict[str, Any]]:
 	"""Fetch YouTube comments using yt_dlp with short-lived in-memory cache.
+
+	When include_replies=False (default), only top-level comments are fetched
+	(depth=1) for speed.  Replies can be loaded separately via fetch_comment_replies().
 
 	Returns a list of comment objects as provided by yt_dlp's extractor.
 	"""
-	clean_max = max(1, min(int(max_comments or 80), 300))
+	clean_max = max(1, min(int(max_comments or 20), 300))
 	sort_mode = "new" if str(comment_sort).lower() == "new" else "top"
-	cache_key = f"{watch_url}::m{clean_max}::s{sort_mode}"
+	depth = "all" if include_replies else "1"
+	cache_key = f"{watch_url}::m{clean_max}::s{sort_mode}::d{depth}"
 	now = time.time()
 	cached = COMMENTS_CACHE.get(cache_key)
 	if cached and (now - float(cached.get("ts", 0))) < COMMENTS_CACHE_TTL_SEC:
-		return cached.get("comments", []) 
+		return cached.get("comments", [])
 
-	# yt-dlp may include comments in normal video extraction when it is quick.
-	# Reuse those if available to avoid a second extractor call.
-	video_info = VIDEO_INFO_CACHE.get(watch_url)
-	if video_info and (now - float(video_info.get("ts", 0))) < VIDEO_INFO_CACHE_TTL_SEC:
-		quick_comments = video_info.get("comments") or []
-		if isinstance(quick_comments, list) and quick_comments:
-			COMMENTS_CACHE[cache_key] = {"comments": quick_comments, "ts": now}
-			return quick_comments
+	# NOTE: Do NOT reuse VIDEO_INFO_CACHE for comments here – those may include
+	# replies mixed in and have no limit applied. Always fetch fresh with the
+	# correct max_comments spec.
+
+	# max_comments format: max-comments,max-parents,max-replies,max-replies-per-thread,max-depth
+	# depth=1 means top-level only (no replies) — much faster
+	if include_replies:
+		max_comments_spec = f"{clean_max},all,all,all,all"
+	else:
+		max_comments_spec = f"{clean_max},{clean_max},0,0,1"
 
 	ydl_opts: Dict[str, object] = {
 		"quiet": True,
@@ -158,7 +168,7 @@ def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort:
 		"extractor_args": {
 			"youtube": {
 				"comment_sort": [sort_mode],
-				"max_comments": [str(clean_max)],
+				"max_comments": [max_comments_spec],
 			}
 		},
 	}
@@ -167,12 +177,61 @@ def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort:
 		info = ydl.extract_info(watch_url, download=False)
 
 	comments = info.get("comments") or []
-	# print first comment in console for debugging
-	# if isinstance(comments, list) and comments:
-	# 	print("First comment fetched:", comments[0])
-  
 	if not isinstance(comments, list):
 		comments = []
 
 	COMMENTS_CACHE[cache_key] = {"comments": comments, "ts": now}
 	return comments
+
+
+def fetch_comment_replies(
+	watch_url: str,
+	parent_comment_id: str,
+	max_replies: int = 50,
+	comment_sort: str = "top",
+) -> List[Dict[str, Any]]:
+	"""Fetch replies to a specific comment. Uses a separate cache key."""
+	clean_max = max(1, min(int(max_replies or 50), 200))
+	sort_mode = "new" if str(comment_sort).lower() == "new" else "top"
+	cache_key = f"{watch_url}::replies::{parent_comment_id}::m{clean_max}::s{sort_mode}"
+	now = time.time()
+	cached = COMMENTS_CACHE.get(cache_key)
+	if cached and (now - float(cached.get("ts", 0))) < COMMENTS_CACHE_TTL_SEC:
+		return cached.get("comments", [])
+
+	# Fetch with replies enabled, targeting replies for a specific depth
+	# max_comments format: max-comments,max-parents,max-replies,max-replies-per-thread,max-depth
+	max_comments_spec = f"all,all,{clean_max},{clean_max},2"
+
+	ydl_opts: Dict[str, object] = {
+		"quiet": True,
+		"no_warnings": True,
+		"skip_download": True,
+		"nocheckcertificate": True,
+		"noplaylist": True,
+		"extract_flat": False,
+		"getcomments": True,
+		"js_runtimes": {"deno": {}, "node": {}},
+		"extractor_args": {
+			"youtube": {
+				"comment_sort": [sort_mode],
+				"max_comments": [max_comments_spec],
+			}
+		},
+	}
+
+	with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+		info = ydl.extract_info(watch_url, download=False)
+
+	all_comments = info.get("comments") or []
+	if not isinstance(all_comments, list):
+		all_comments = []
+
+	# Filter to only replies for the requested parent
+	replies = [
+		c for c in all_comments
+		if isinstance(c, dict) and str(c.get("parent") or "").strip() == parent_comment_id
+	]
+
+	COMMENTS_CACHE[cache_key] = {"comments": replies, "ts": now}
+	return replies

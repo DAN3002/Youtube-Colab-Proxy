@@ -523,7 +523,7 @@ function initPlayerPage(videoId, playlistId, playlistIndex) {
 	const commentsLimitEl = $('#commentsLimit');
 	if (commentsLimitEl) {
 		const allowed = [10, 20, 50, 70, 100];
-		const limit = allowed.includes(Number(app.commentsLimit)) ? Number(app.commentsLimit) : 50;
+		const limit = allowed.includes(Number(app.commentsLimit)) ? Number(app.commentsLimit) : 20;
 		commentsLimitEl.value = String(limit);
 	}
 	applyTheaterCommentsCollapse();

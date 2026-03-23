@@ -19,7 +19,7 @@ from ..dependencies import (
 	normalize_list_url,
 	build_ydl_base_opts,
 )
-from ...services.resolver import resolve_direct_media, fetch_youtube_comments
+from ...services.resolver import resolve_direct_media, fetch_youtube_comments, fetch_comment_replies
 
 router = APIRouter(tags=["api"])
 
@@ -348,9 +348,11 @@ async def api_video_info(id: str = Query("")):
 async def api_comments(
 	url: str = Query(""),
 	id: str = Query(""),
-	limit: int = Query(80),
+	limit: int = Query(20),
 	sort: str = Query("top"),
 ):
+	"""Fetch top-level comments only (no replies) for speed.
+	Use /api/replies to load replies for a specific comment."""
 	url_param = url.strip()
 	id_param = id.strip()
 	if url_param:
@@ -364,9 +366,10 @@ async def api_comments(
 	sort_mode = "new" if sort.lower() == "new" else "top"
 
 	try:
-		raw_comments = fetch_youtube_comments(watch_url, max_comments=limit, comment_sort=sort_mode)
-		top_level = []
-		replies_by_parent = {}
+		# Fetch top-level only (depth=1) — much faster
+		raw_comments = fetch_youtube_comments(
+			watch_url, max_comments=limit, comment_sort=sort_mode, include_replies=False
+		)
 
 		def _normalize_comment(c):
 			cid = str(c.get("id") or "")
@@ -383,34 +386,25 @@ async def api_comments(
 				"author_thumbnail": to_proxy_image_url(raw_thumb),
 				"text": text,
 				"like_count": int(c.get("like_count") or 0),
+				"is_pinned": bool(c.get("is_pinned")),
+				"is_favorited": bool(c.get("is_favorited")),
 				"timestamp": c.get("timestamp"),
 			}
 
+		comments = []
 		for c in raw_comments:
 			if not isinstance(c, dict):
 				continue
-			cid = str(c.get("id") or "")
-			if not cid:
-				continue
+			# Skip replies (should not exist with depth=1, but just in case)
 			parent = str(c.get("parent") or "").strip()
 			if parent and parent.lower() != "root":
-				norm_reply = _normalize_comment(c)
-				if not norm_reply:
-					continue
-				replies_by_parent.setdefault(parent, []).append(norm_reply)
-			else:
-				top_level.append(c)
-
-		comments = []
-		for c in top_level:
-			norm = _normalize_comment(c)
-			if not norm:
 				continue
-			cid = norm["id"]
-			replies = replies_by_parent.get(cid, [])
-			norm["reply_count"] = len(replies)
-			norm["replies"] = replies
-			comments.append(norm)
+			norm = _normalize_comment(c)
+			if norm:
+				comments.append(norm)
+			# Hard cap at the requested limit
+			if len(comments) >= limit:
+				break
 
 		return {
 			"comments": comments,
@@ -420,3 +414,59 @@ async def api_comments(
 		}
 	except Exception as e:
 		return JSONResponse({"comments": [], "error": str(e)}, status_code=502)
+
+
+# ---- /api/replies ---------------------------------------------------------
+
+@router.get("/replies")
+async def api_replies(
+	id: str = Query(""),
+	comment_id: str = Query(""),
+	limit: int = Query(50),
+	sort: str = Query("top"),
+):
+	"""Fetch replies to a specific top-level comment."""
+	vid = id.strip()
+	cid = comment_id.strip()
+	if not vid or not YOUTUBE_ID_RE.match(vid):
+		return JSONResponse({"replies": [], "error": "Missing or invalid video id"}, status_code=400)
+	if not cid:
+		return JSONResponse({"replies": [], "error": "Missing comment_id"}, status_code=400)
+
+	limit = max(1, min(limit, 200))
+	sort_mode = "new" if sort.lower() == "new" else "top"
+	watch_url = f"https://www.youtube.com/watch?v={vid}"
+
+	try:
+		raw_replies = fetch_comment_replies(
+			watch_url, parent_comment_id=cid, max_replies=limit, comment_sort=sort_mode
+		)
+
+		replies = []
+		for c in raw_replies:
+			if not isinstance(c, dict):
+				continue
+			rid = str(c.get("id") or "")
+			text = c.get("text")
+			if isinstance(text, list):
+				text = "\n".join(str(x) for x in text if x is not None)
+			text = str(text or "").strip()
+			if not rid or not text:
+				continue
+			raw_thumb = str(c.get("author_thumbnail") or "")
+			replies.append({
+				"id": rid,
+				"author": str(c.get("author") or "Unknown"),
+				"author_thumbnail": to_proxy_image_url(raw_thumb),
+				"text": text,
+				"like_count": int(c.get("like_count") or 0),
+				"timestamp": c.get("timestamp"),
+			})
+
+		return {
+			"replies": replies,
+			"count": len(replies),
+			"parent_id": cid,
+		}
+	except Exception as e:
+		return JSONResponse({"replies": [], "error": str(e)}, status_code=502)
