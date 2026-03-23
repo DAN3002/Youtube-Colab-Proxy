@@ -13,6 +13,7 @@ A feature-rich YouTube streaming proxy with a built-in web player. Watch videos,
 
 ### Video Streaming
 - **Proxy-based playback** — streams MP4 bytes directly, no client-side extraction
+- **Up to 1080p support** — automatically merges separate video+audio streams via `ffmpeg` for HD quality (works on Colab too!)
 - **Range requests** for instant seeking and partial content delivery
 - **Resolution selector** — choose quality or let auto-select pick the best available
 - **Theater & normal modes** with keyboard shortcuts (Space, J/L, F)

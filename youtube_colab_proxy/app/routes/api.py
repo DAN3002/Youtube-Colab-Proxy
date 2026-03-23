@@ -210,7 +210,8 @@ async def api_formats(url: str = Query(""), id: str = Query("")):
 		heights = set()
 		for f in fmts:
 			try:
-				if (f.get("vcodec") and f.get("vcodec") != "none") and (f.get("acodec") and f.get("acodec") != "none"):
+				has_video = f.get("vcodec") and f.get("vcodec") != "none"
+				if has_video:
 					h = int(f.get("height") or 0)
 					if h > 0:
 						heights.add(h)
@@ -320,9 +321,12 @@ async def api_video_info(id: str = Query("")):
 		duration = info.get("duration") or 0
 
 		# --- Available formats / qualities ---
+		# Include ALL video heights (both progressive and DASH video-only)
+		# since we can now merge video+audio with ffmpeg for higher qualities
 		fmts = info.get("formats") or []
 		heights = set()
 		best_auto_height = 0
+		has_audio_streams = False
 		for f in fmts:
 			try:
 				has_video = f.get("vcodec") and f.get("vcodec") != "none"
@@ -330,10 +334,15 @@ async def api_video_info(id: str = Query("")):
 				h = int(f.get("height") or 0)
 				if has_video and h > 0:
 					heights.add(h)
+					# best_auto_height = best progressive (has both v+a)
 					if has_audio and h > best_auto_height:
 						best_auto_height = h
+				if has_audio and not has_video:
+					has_audio_streams = True
 			except Exception:
 				continue
+		# If we have audio-only streams, we can merge video-only + audio
+		# so all video heights are available (with ffmpeg)
 		sorted_heights = sorted(list(heights), reverse=True)
 		formats = [{"height": h, "label": f"{h}p"} for h in sorted_heights]
 
