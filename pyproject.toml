@@ -34,7 +34,7 @@ dependencies = [
 ycp = "youtube_colab_proxy.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
 
 [tool.setuptools.package-data]
 "youtube_colab_proxy" = ["app/templates/*.html", "app/static/*"]
