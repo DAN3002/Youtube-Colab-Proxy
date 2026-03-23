@@ -1,0 +1,173 @@
+{#
+  Video player – YouTube-like layout.
+  Normal mode: Left = player + info + comments, Right = up-next recommendations.
+  Theater mode: full-width player on top, then two-column below (info+comments | recommendations).
+
+  Expects:
+    video_id  – the YouTube video ID to play
+    playlist_id – optional playlist context
+    playlist_items – optional list of playlist entries for sidebar
+    playlist_index – current index in playlist
+#}
+
+<!-- Player Section -->
+<div id="playerWrap" class="animate-fade-in">
+	<!-- Theater-mode player sits in its own full-width row -->
+	<div id="theaterPlayer" class="hidden">
+		<div class="bg-black border-b border-yt-divider">
+			<div class="relative aspect-video w-full max-h-[80vh] overflow-hidden">
+				<!-- Video element is moved here via JS in theater mode -->
+			</div>
+		</div>
+	</div>
+
+	<div class="max-w-[1800px] mx-auto px-6 py-4 xl:px-10">
+		<div class="watch-layout">
+			<!-- ============ LEFT COLUMN ============ -->
+			<div class="watch-primary">
+				<!-- Video player (normal mode – lives here; theater mode – moved to #theaterPlayer) -->
+				<div id="normalPlayerBox" class="bg-black rounded-xl overflow-hidden border border-yt-divider">
+					<div class="relative aspect-video w-full overflow-hidden">
+						<video id="player" class="w-full h-full object-contain" controls playsinline preload="metadata"></video>
+					</div>
+				</div>
+
+				<!-- Title -->
+				<h1 id="nowPlaying" class="text-lg font-semibold text-yt-text leading-snug line-clamp-2 mt-3"></h1>
+
+				<!-- Channel + Actions row -->
+				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-3">
+					<!-- Channel info -->
+					<a id="channelLink" href="#" class="flex items-center gap-3 group flex-shrink-0">
+						<div id="channelAvatar" class="w-10 h-10 bg-yt-bg-elevated rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+							<i class="fa-solid fa-user text-yt-text-secondary text-sm" id="channelAvatarIcon"></i>
+							<img id="channelAvatarImg" class="w-full h-full object-cover hidden" alt="" loading="lazy" />
+						</div>
+						<div class="min-w-0">
+							<div id="nowChannel" class="text-sm font-medium text-yt-text group-hover:text-white transition-colors"></div>
+							<div id="channelHandle" class="text-xs text-yt-text-secondary"></div>
+						</div>
+					</a>
+
+					<!-- Actions -->
+					<div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+						<div id="playerModeSwitch" class="player-mode-switch" role="group" aria-label="Player view mode">
+							<button type="button" class="player-mode-btn is-active" data-mode="normal" title="Normal mode">
+								<i class="fa-solid fa-table-cells-large text-xs"></i>
+								<span>Normal</span>
+							</button>
+							<button type="button" class="player-mode-btn" data-mode="theater" title="Theater mode">
+								<i class="fa-solid fa-film text-xs"></i>
+								<span>Theater</span>
+							</button>
+						</div>
+						<!-- Quality selector -->
+						<div class="relative" id="qualityWrap">
+							<select id="videoResolution" class="hidden h-9 px-3 pr-8 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text border-none outline-none cursor-pointer transition-colors duration-200" title="Resolution">
+							</select>
+							<div id="qualityBadge" class="hidden items-center gap-1.5 h-9 px-3 bg-yt-bg-secondary rounded-full text-sm text-yt-text-secondary">
+								<i class="fa-solid fa-gear text-xs"></i>
+								<span id="qualityBadgeText">Auto</span>
+							</div>
+						</div>
+
+						<a id="openStream" class="inline-flex items-center gap-2 h-9 px-4 bg-yt-bg-secondary hover:bg-yt-bg-hover rounded-full text-sm text-yt-text transition-colors duration-200" href="#" target="_blank" rel="noopener">
+							<i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+							Open stream
+						</a>
+					</div>
+				</div>
+
+				<!-- Video stats -->
+				<div id="videoStats" class="hidden items-center gap-3 text-xs text-yt-text-secondary mt-2">
+					<span id="videoViews"></span>
+					<span id="videoLikes"></span>
+					<span id="videoDate"></span>
+				</div>
+
+				<!-- Divider -->
+				<div class="border-t border-yt-divider mt-4"></div>
+
+				<!-- Comments section (below player info, like YouTube) -->
+				<div id="commentsSection" class="mt-4">
+					<div class="flex items-center justify-between gap-3 mb-4">
+						<div>
+							<h2 class="text-base font-semibold text-yt-text">Comments</h2>
+							<div id="commentsCount" class="text-xs text-yt-text-secondary mt-0.5"></div>
+						</div>
+						<div class="flex items-center gap-2">
+							<select id="commentsLimit" class="yt-select comments-limit" title="Comments to fetch">
+								<option value="10">10</option>
+								<option value="20" selected>20</option>
+								<option value="50">50</option>
+								<option value="70">70</option>
+								<option value="100">100</option>
+							</select>
+							<select id="commentsSort" class="yt-select comments-sort" title="Comment sort">
+								<option value="top">Top</option>
+								<option value="new">Newest</option>
+							</select>
+						</div>
+					</div>
+					<div id="commentsState" class="text-sm text-yt-text-secondary py-2">Loading comments...</div>
+					<div id="commentsList" class="comments-list-flat"></div>
+				</div>
+			</div>
+
+			<!-- ============ RIGHT COLUMN ============ -->
+			<aside class="watch-secondary">
+				{% if playlist_id and playlist_items|length > 0 %}
+				<!-- Playlist context -->
+				<div class="comments-panel mb-4">
+					<div class="comments-panel-head">
+						<div class="comments-panel-title-wrap">
+							<h2 class="comments-panel-title">Playlist</h2>
+							<div class="text-xs text-yt-text-secondary mt-0.5">{{ playlist_items|length }} videos</div>
+						</div>
+					</div>
+					<div class="overflow-auto max-h-[300px] p-2">
+						{% for item in playlist_items %}
+						<a href="/watch?v={{ item.id }}&list={{ playlist_id }}&index={{ loop.index0 }}"
+						   class="flex gap-2 p-2 rounded-lg hover:bg-yt-bg-hover transition-colors {{ 'bg-yt-bg-hover' if item.id == video_id else '' }}">
+							<div class="text-xs text-yt-text-secondary w-5 flex-shrink-0 pt-1 text-right">{{ loop.index }}</div>
+							<div class="w-24 flex-shrink-0">
+								<div class="aspect-video rounded-md overflow-hidden bg-yt-bg-elevated">
+									<img loading="lazy" src="/api/thumb/{{ item.id }}?q=mq" alt="" class="w-full h-full object-cover" />
+								</div>
+							</div>
+							<div class="flex-1 min-w-0">
+								<div class="text-xs font-medium text-yt-text line-clamp-2">{{ item.title }}</div>
+								{% if item.channel %}
+								<div class="text-[10px] text-yt-text-secondary mt-0.5">{{ item.channel }}</div>
+								{% endif %}
+								{% if item.duration %}
+								<div class="text-[10px] text-yt-text-secondary mt-0.5">{{ item.duration }}</div>
+								{% endif %}
+							</div>
+						</a>
+						{% endfor %}
+					</div>
+				</div>
+				{% endif %}
+
+				<!-- Recommendations / Up next -->
+				<div id="recommendationsPanel" class="hidden">
+					<!-- Skeleton loaders while fetching -->
+					<div id="recsLoading" class="space-y-3">
+						{% for _ in range(4) %}
+						<div class="flex gap-2 animate-pulse">
+							<div class="w-[168px] flex-shrink-0 aspect-video rounded-lg bg-yt-bg-elevated"></div>
+							<div class="flex-1 space-y-2 pt-0.5">
+								<div class="h-3 bg-yt-bg-elevated rounded w-full"></div>
+								<div class="h-3 bg-yt-bg-elevated rounded w-3/4"></div>
+								<div class="h-2 bg-yt-bg-elevated rounded w-1/2 mt-1"></div>
+							</div>
+						</div>
+						{% endfor %}
+					</div>
+					<div id="recommendationsList"></div>
+				</div>
+			</aside>
+		</div>
+	</div>
+</div>

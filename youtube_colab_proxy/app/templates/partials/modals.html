@@ -1,0 +1,69 @@
+<!-- Notice Modal -->
+<div id="modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.7);">
+	<div class="modal-content bg-yt-bg-elevated rounded-2xl p-6 max-w-md w-full shadow-2xl border border-yt-divider animate-scale-in">
+		<div class="flex items-center gap-3 mb-4">
+			<div class="w-10 h-10 bg-yt-red/10 rounded-full flex items-center justify-center flex-shrink-0">
+				<i class="fa-solid fa-triangle-exclamation text-yt-red"></i>
+			</div>
+			<h3 class="font-semibold text-yt-text text-lg">Notice</h3>
+		</div>
+		<div id="modalMsg" class="text-sm text-yt-text-secondary whitespace-pre-wrap leading-relaxed"></div>
+		<div class="mt-5 flex justify-end">
+			<button id="modalClose" class="yt-btn-primary">Got it</button>
+		</div>
+	</div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,.7);">
+	<div class="modal-content bg-yt-bg-elevated rounded-2xl p-6 max-w-md w-full shadow-2xl border border-yt-divider animate-scale-in">
+		<div class="flex items-center gap-3 mb-5">
+			<div class="w-10 h-10 bg-yt-bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+				<i class="fa-solid fa-gear text-yt-text-secondary"></i>
+			</div>
+			<h3 class="font-semibold text-yt-text text-lg">Settings</h3>
+		</div>
+		<div class="space-y-5">
+			<label class="block">
+				<span class="text-sm font-medium text-yt-text mb-2 block">On video end</span>
+				<select id="optOnEnd" class="yt-select">
+					<option value="stop">Stop (default)</option>
+					<option value="loop">Loop current video</option>
+					<option value="next">Play next (Playlist)</option>
+				</select>
+			</label>
+			<label class="block">
+				<span class="text-sm font-medium text-yt-text mb-2 block">Preferred resolution</span>
+				<select id="optResolution" class="yt-select">
+					<option value="0">Auto (best available)</option>
+					<option value="2160">2160p (4K)</option>
+					<option value="1440">1440p (2K)</option>
+					<option value="1080">1080p (Full HD)</option>
+					<option value="720">720p (HD)</option>
+					<option value="480">480p</option>
+					<option value="360">360p</option>
+					<option value="240">240p</option>
+					<option value="144">144p</option>
+				</select>
+			</label>
+			<!-- Watch History -->
+			<div class="block">
+				<span class="text-sm font-medium text-yt-text mb-2 block">Watch history</span>
+				<div class="flex items-center justify-between bg-yt-bg rounded-xl px-4 py-3 border border-yt-divider">
+					<div class="flex items-center gap-2.5">
+						<i class="fa-solid fa-clock-rotate-left text-yt-text-secondary text-sm"></i>
+						<span id="settingsHistoryCount" class="text-sm text-yt-text-secondary">0 videos</span>
+					</div>
+					<button id="settingsClearHistory"
+						class="text-xs font-medium text-yt-red hover:text-yt-red-hover transition-colors px-2.5 py-1 rounded-md hover:bg-yt-red/10">
+						Clear all
+					</button>
+				</div>
+			</div>
+		</div>
+		<div class="flex justify-end gap-3 mt-6">
+			<button id="settingsCancel" class="yt-btn-secondary">Cancel</button>
+			<button id="settingsSave" class="yt-btn-primary">Save</button>
+		</div>
+	</div>
+</div>

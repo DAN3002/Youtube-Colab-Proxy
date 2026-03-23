@@ -64,18 +64,32 @@ ycp --serve --cookies-str "session_token=abc123; other_cookie=xyz"
 
 ### Google Colab Usage
 
-```python
-# Install in Colab
-!pip install youtube-colab-proxy
+**Cell 1** — Install the package and a JavaScript runtime (required by yt-dlp):
 
-# Start the proxy server
+```bash
+!pip install youtube-colab-proxy
+!apt-get update -qq && apt-get install -y -qq nodejs
+```
+
+**Cell 2** — Start the proxy server:
+
+```python
 import youtube_colab_proxy
 url = youtube_colab_proxy.start()
 
 # The app will automatically:
-# 1. Start a Flask server
+# 1. Start a FastAPI server
 # 2. Create a public Colab proxy URL
 # 3. Display a clickable link in the output
+```
+
+> **Note:** A JavaScript runtime (`node` or `deno`) is required for full YouTube extraction.
+> The `apt-get install nodejs` step above provides this. Without it, some formats may be missing.
+
+**With cookies** (for age-restricted or private content):
+
+```python
+url = youtube_colab_proxy.start(cookies_str="YOUR_COOKIE_STRING")
 ```
 
 ## Configuration
@@ -137,10 +151,14 @@ ycp --serve --password your_password
 ## Dependencies
 
 - **yt-dlp** - YouTube video extraction and metadata
-- **Flask** - Web application framework
-- **youtube-search-python** - YouTube search functionality  
+- **yt-dlp-ejs** - JavaScript challenge solver scripts for yt-dlp
+- **FastAPI** + **Uvicorn** - Web application framework and ASGI server
+- **Jinja2** - HTML templating engine
+- **youtube-search-python** - YouTube search functionality
+- **streamlink** - Alternative stream resolution
 - **portpicker** - Automatic port selection
 - **requests** - HTTP client for proxy streaming
+- **Node.js** or **Deno** - External JavaScript runtime (required by yt-dlp for YouTube)
 
 ## Development
 

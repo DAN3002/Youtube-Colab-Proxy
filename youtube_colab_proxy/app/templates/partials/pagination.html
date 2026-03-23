@@ -1,0 +1,42 @@
+{#
+  Pagination macro.
+
+  Usage:
+    {% from "partials/pagination.html" import pagination %}
+    {{ pagination(base_url="/results?search_query=test", page=2, total_pages=5, has_more=True) }}
+#}
+
+{% macro pagination(base_url, page, total_pages=1, has_more=False) %}
+{% set show_pager = (page > 1) or has_more or (total_pages > 1) %}
+{% if show_pager %}
+<div class="mt-8 flex items-center justify-center gap-3">
+	{% if page > 1 %}
+	<a href="{{ base_url }}&page={{ page - 1 }}" class="yt-btn-secondary gap-2">
+		<i class="fa-solid fa-chevron-left text-xs"></i>
+		Previous
+	</a>
+	{% else %}
+	<span class="yt-btn-secondary gap-2 opacity-40 cursor-not-allowed">
+		<i class="fa-solid fa-chevron-left text-xs"></i>
+		Previous
+	</span>
+	{% endif %}
+
+	<div class="text-sm text-yt-text-secondary px-3">
+		Page {{ page }}{% if total_pages > 1 %} / {{ total_pages }}{% endif %}
+	</div>
+
+	{% if has_more or (page < total_pages) %}
+	<a href="{{ base_url }}&page={{ page + 1 }}" class="yt-btn-secondary gap-2">
+		Next
+		<i class="fa-solid fa-chevron-right text-xs"></i>
+	</a>
+	{% else %}
+	<span class="yt-btn-secondary gap-2 opacity-40 cursor-not-allowed">
+		Next
+		<i class="fa-solid fa-chevron-right text-xs"></i>
+	</span>
+	{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

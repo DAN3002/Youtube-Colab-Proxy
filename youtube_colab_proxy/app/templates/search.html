@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "partials/video_card.html" import video_card %}
+{% from "partials/pagination.html" import pagination %}
+
+{% block title %}{{ query }} - YouTube Proxy{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto px-4 pb-8">
+	{% if query %}
+	<!-- Search status bar -->
+	<div class="flex items-center gap-3 py-4 border-b border-yt-divider mb-4">
+		<i class="fa-solid fa-magnifying-glass text-yt-text-secondary"></i>
+		<div>
+			<h1 class="text-base font-medium text-yt-text">
+				Search results for "<span class="text-yt-blue">{{ query }}</span>"
+			</h1>
+			{% if items %}
+			<p class="text-xs text-yt-text-secondary mt-0.5">Page {{ page }}{% if total_pages > 1 %} of {{ total_pages }}{% endif %}</p>
+			{% endif %}
+		</div>
+	</div>
+	{% endif %}
+
+	{% if error %}
+	<div class="flex items-center gap-3 p-4 rounded-xl bg-yt-red/10 border border-yt-red/20 mb-6">
+		<i class="fa-solid fa-triangle-exclamation text-yt-red"></i>
+		<p class="text-sm text-yt-text">{{ error }}</p>
+	</div>
+	{% endif %}
+
+	{% if items %}
+	<!-- Results Grid -->
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-6">
+		{% for item in items %}
+		{{ video_card(item) }}
+		{% endfor %}
+	</div>
+
+	<!-- Pagination -->
+	{{ pagination(base_url="/results?search_query=" ~ (query|urlencode), page=page, total_pages=total_pages, has_more=has_more) }}
+
+	{% elif query and not error %}
+	<!-- No results -->
+	<div class="flex flex-col items-center justify-center py-16">
+		<div class="w-16 h-16 bg-yt-bg-secondary rounded-full flex items-center justify-center mb-4">
+			<i class="fa-solid fa-video-slash text-yt-text-secondary text-xl"></i>
+		</div>
+		<h2 class="text-lg font-medium text-yt-text mb-1">No results found</h2>
+		<p class="text-sm text-yt-text-secondary">Try different keywords or check your spelling.</p>
+	</div>
+
+	{% elif not query %}
+	<!-- Empty search prompt -->
+	<div class="flex flex-col items-center justify-center py-16">
+		<div class="w-16 h-16 bg-yt-bg-secondary rounded-full flex items-center justify-center mb-4">
+			<i class="fa-solid fa-magnifying-glass text-yt-text-secondary text-xl"></i>
+		</div>
+		<h2 class="text-lg font-medium text-yt-text mb-1">Search for videos</h2>
+		<p class="text-sm text-yt-text-secondary">Enter a keyword or paste a YouTube URL in the search bar.</p>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}
