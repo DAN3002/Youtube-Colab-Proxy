@@ -4,6 +4,7 @@ Resolves a YouTube video via yt-dlp and proxies the direct media bytes
 back to the client, including Range support.
 """
 
+import asyncio
 from typing import Dict, Optional
 
 import requests as _requests
@@ -38,7 +39,7 @@ async def stream(
 		max_h = None
 
 	try:
-		direct_url, ydl_headers = resolve_direct_media(watch_url, max_height=max_h or 10**9)
+		direct_url, ydl_headers = await asyncio.to_thread(resolve_direct_media, watch_url, max_h or 10**9)
 	except Exception as e:
 		return Response(f"Failed to resolve media: {e}", status_code=502)
 
@@ -55,7 +56,7 @@ async def stream(
 	if rng:
 		prox_headers["Range"] = rng
 
-	r = _requests.get(direct_url, headers=prox_headers, stream=True, timeout=30)
+	r = await asyncio.to_thread(_requests.get, direct_url, headers=prox_headers, stream=True, timeout=30)
 
 	resp_headers: Dict[str, str] = {
 		"Content-Type": r.headers.get("Content-Type", "video/mp4"),

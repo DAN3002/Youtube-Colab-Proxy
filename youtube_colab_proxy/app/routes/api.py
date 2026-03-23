@@ -4,6 +4,7 @@ Handles search, playlist listing, formats, comments, version, thumbnails,
 and image proxying.  Migrated from the original Flask __init__.py.
 """
 
+import asyncio
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -42,7 +43,7 @@ async def api_version():
 async def api_thumb(vid: str, q: str = Query("hq")):
 	if not YOUTUBE_ID_RE.match(vid):
 		return Response("Invalid video id", status_code=400)
-	data, ctype = fetch_thumb_bytes(vid, pref=q)
+	data, ctype = await asyncio.to_thread(fetch_thumb_bytes, vid, q)
 	if not data:
 		return Response("Thumbnail not found", status_code=404)
 	return Response(content=data, status_code=200, media_type=ctype or "image/jpeg",
@@ -63,7 +64,7 @@ async def api_image_proxy(u: str = Query("")):
 	except Exception:
 		return Response("Invalid image url", status_code=400)
 
-	data, ctype = fetch_remote_image_bytes(raw)
+	data, ctype = await asyncio.to_thread(fetch_remote_image_bytes, raw)
 	if not data:
 		return Response("Image not found", status_code=404)
 	return Response(content=data, status_code=200, media_type=ctype or "image/jpeg",
@@ -91,8 +92,11 @@ async def api_search(q: str = Query(""), page: int = Query(1)):
 		})
 		need_count = max(1, min(page * PL_PAGE_SIZE, 200))
 		query = f"ytsearch{need_count}:{q}"
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(query, download=False)
+		def _do_search():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(query, download=False)
+
+		info = await asyncio.to_thread(_do_search)
 
 		entries = info.get("entries") or []
 		start = (page - 1) * PL_PAGE_SIZE
@@ -140,8 +144,12 @@ async def api_playlist(url: str = Query(""), page: int = Query(1)):
 	})
 	try:
 		norm_url = normalize_list_url(raw_url)
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(norm_url, download=False)
+
+		def _do_playlist():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(norm_url, download=False)
+
+		info = await asyncio.to_thread(_do_playlist)
 		entries = info.get("entries") or []
 		total = len(entries)
 		start = (page - 1) * PL_PAGE_SIZE
@@ -193,8 +201,11 @@ async def api_formats(url: str = Query(""), id: str = Query("")):
 			"skip_download": True,
 			"nocheckcertificate": True,
 		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(watch_url, download=False)
+		def _do_formats():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(watch_url, download=False)
+
+		info = await asyncio.to_thread(_do_formats)
 		fmts = info.get("formats") or []
 		heights = set()
 		for f in fmts:
@@ -213,25 +224,66 @@ async def api_formats(url: str = Query(""), id: str = Query("")):
 
 # ---- /api/video-info ------------------------------------------------------
 
+def _sync_extract_video_info(vid: str):
+	"""Synchronous helper — runs in a thread via asyncio.to_thread()."""
+	import yt_dlp
+	watch_url = f"https://www.youtube.com/watch?v={vid}"
+	ydl_opts = build_ydl_base_opts()
+	ydl_opts.update({
+		"skip_download": True,
+		"nocheckcertificate": True,
+		"noplaylist": True,
+	})
+	with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+		return ydl.extract_info(watch_url, download=False)
+
+
+def _sync_search_recommendations(title: str, exclude_vid: str):
+	"""Synchronous helper — runs in a thread via asyncio.to_thread()."""
+	import yt_dlp
+	rec_opts = build_ydl_base_opts()
+	rec_opts.update({
+		"extract_flat": True,
+		"skip_download": True,
+		"noplaylist": True,
+	})
+	search_query = f"ytsearch15:{title}"
+	with yt_dlp.YoutubeDL(rec_opts) as ydl_rec:
+		rec_info = ydl_rec.extract_info(search_query, download=False)
+
+	recommendations = []
+	for e in (rec_info.get("entries") or []):
+		eid = (e.get("id") or e.get("url") or "").strip()
+		etitle = (e.get("title") or "").strip()
+		edur = e.get("duration") or e.get("duration_string") or ""
+		ech = (e.get("uploader") or e.get("channel") or "").strip()
+		if not eid or not YOUTUBE_ID_RE.match(eid):
+			continue
+		if eid == exclude_vid:
+			continue
+		recommendations.append({
+			"id": eid,
+			"title": etitle,
+			"duration": edur if isinstance(edur, str) else (str(edur) if edur else ""),
+			"channel": ech,
+			"thumb": f"/api/thumb/{eid}?q=mq",
+		})
+		if len(recommendations) >= 12:
+			break
+	return recommendations
+
+
 @router.get("/video-info")
 async def api_video_info(id: str = Query("")):
-	"""Fetch video metadata: title, channel, avatar, description, and recommended videos."""
+	"""Fetch video metadata: title, channel, avatar, description, and recommended videos.
+	All blocking yt-dlp calls run in background threads to avoid blocking the event loop."""
 	vid = id.strip()
 	if not vid or not YOUTUBE_ID_RE.match(vid):
 		return JSONResponse({"error": "Missing or invalid video id"}, status_code=400)
 
 	try:
-		import yt_dlp
-
-		watch_url = f"https://www.youtube.com/watch?v={vid}"
-		ydl_opts = build_ydl_base_opts()
-		ydl_opts.update({
-			"skip_download": True,
-			"nocheckcertificate": True,
-			"noplaylist": True,
-		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(watch_url, download=False)
+		# Run blocking yt-dlp extraction in a thread so it doesn't block the event loop
+		info = await asyncio.to_thread(_sync_extract_video_info, vid)
 
 		# --- Channel info ---
 		channel_name = (info.get("channel") or info.get("uploader") or "").strip()
@@ -286,39 +338,11 @@ async def api_video_info(id: str = Query("")):
 		formats = [{"height": h, "label": f"{h}p"} for h in sorted_heights]
 
 		# --- Recommended / related videos ---
-		# yt-dlp doesn't return "related" videos directly in extract_info,
-		# so we use YouTube search with the video title as a proxy for recommendations
+		# Run in a separate thread so it doesn't delay the response further
 		recommendations = []
 		if title:
 			try:
-				rec_opts = build_ydl_base_opts()
-				rec_opts.update({
-					"extract_flat": True,
-					"skip_download": True,
-					"noplaylist": True,
-				})
-				search_query = f"ytsearch15:{title}"
-				with yt_dlp.YoutubeDL(rec_opts) as ydl_rec:
-					rec_info = ydl_rec.extract_info(search_query, download=False)
-				rec_entries = rec_info.get("entries") or []
-				for e in rec_entries:
-					eid = (e.get("id") or e.get("url") or "").strip()
-					etitle = (e.get("title") or "").strip()
-					edur = e.get("duration") or e.get("duration_string") or ""
-					ech = (e.get("uploader") or e.get("channel") or "").strip()
-					if not eid or not YOUTUBE_ID_RE.match(eid):
-						continue
-					if eid == vid:
-						continue  # Skip the current video
-					recommendations.append({
-						"id": eid,
-						"title": etitle,
-						"duration": edur if isinstance(edur, str) else (str(edur) if edur else ""),
-						"channel": ech,
-						"thumb": f"/api/thumb/{eid}?q=mq",
-					})
-					if len(recommendations) >= 12:
-						break
+				recommendations = await asyncio.to_thread(_sync_search_recommendations, title, vid)
 			except Exception:
 				pass
 
@@ -366,7 +390,8 @@ async def api_comments(
 
 	try:
 		# Fetch top-level only (depth=1) — much faster
-		raw_comments = fetch_youtube_comments(
+		raw_comments = await asyncio.to_thread(
+			fetch_youtube_comments,
 			watch_url, max_comments=limit, comment_sort=sort_mode, include_replies=False
 		)
 
@@ -437,7 +462,8 @@ async def api_replies(
 	watch_url = f"https://www.youtube.com/watch?v={vid}"
 
 	try:
-		raw_replies = fetch_comment_replies(
+		raw_replies = await asyncio.to_thread(
+			fetch_comment_replies,
 			watch_url, parent_comment_id=cid, max_replies=limit, comment_sort=sort_mode
 		)
 
@@ -499,8 +525,13 @@ async def api_channel_info(handle: str = Query("")):
 			"skip_download": True,
 			"playlist_items": "0",  # Don't download any entries – just metadata
 		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(channel_url + "/videos", download=False)
+		_ch_url = channel_url + "/videos"
+
+		def _do_channel_info():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(_ch_url, download=False)
+
+		info = await asyncio.to_thread(_do_channel_info)
 
 		channel_title = (
 			info.get("channel")
@@ -592,8 +623,11 @@ async def api_channel_videos(handle: str = Query(""), page: int = Query(1)):
 			"skip_download": True,
 			"playlistend": page * PL_PAGE_SIZE + 1,  # Fetch just enough to know if there's a next page
 		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(videos_url, download=False)
+		def _do_channel_videos():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(videos_url, download=False)
+
+		info = await asyncio.to_thread(_do_channel_videos)
 
 		entries = info.get("entries") or []
 		total_fetched = len(entries)
@@ -653,8 +687,11 @@ async def api_channel_playlists(handle: str = Query(""), page: int = Query(1)):
 			"extract_flat": True,
 			"skip_download": True,
 		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(playlists_url, download=False)
+		def _do_channel_playlists():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(playlists_url, download=False)
+
+		info = await asyncio.to_thread(_do_channel_playlists)
 
 		entries = info.get("entries") or []
 		total = len(entries)
@@ -726,8 +763,11 @@ async def api_channel_search(
 			"extract_flat": True,
 			"skip_download": True,
 		})
-		with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-			info = ydl.extract_info(search_url, download=False)
+		def _do_channel_search():
+			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+				return ydl.extract_info(search_url, download=False)
+
+		info = await asyncio.to_thread(_do_channel_search)
 
 		entries = info.get("entries") or []
 		total = len(entries)

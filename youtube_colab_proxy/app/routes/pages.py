@@ -4,6 +4,7 @@ Each route fetches data via yt-dlp and passes it to a Jinja2 template.
 This provides proper URLs, browser history, and bookmarkable pages.
 """
 
+import asyncio
 import re
 from typing import Optional
 
@@ -57,8 +58,11 @@ async def search_results(request: Request, search_query: str = Query(""), page: 
 			})
 			need_count = max(1, min(page * _const.PL_PAGE_SIZE, 200))
 			query_str = f"ytsearch{need_count}:{q}"
-			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-				info = ydl.extract_info(query_str, download=False)
+			def _do_search():
+				with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+					return ydl.extract_info(query_str, download=False)
+
+			info = await asyncio.to_thread(_do_search)
 
 			entries = info.get("entries") or []
 			start = (page - 1) * _const.PL_PAGE_SIZE
@@ -131,8 +135,11 @@ async def watch_video(
 				"extract_flat": True,
 				"skip_download": True,
 			})
-			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-				info = ydl.extract_info(pl_url, download=False)
+			def _do_playlist():
+				with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+					return ydl.extract_info(pl_url, download=False)
+
+			info = await asyncio.to_thread(_do_playlist)
 			for e in (info.get("entries") or []):
 				eid = (e.get("id") or e.get("url") or "").strip()
 				etitle = (e.get("title") or "").strip()
@@ -186,8 +193,11 @@ async def playlist_view(request: Request, list: str = Query(""), page: int = Que
 				"extract_flat": True,
 				"skip_download": True,
 			})
-			with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-				info = ydl.extract_info(pl_url, download=False)
+			def _do_pl_view():
+				with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+					return ydl.extract_info(pl_url, download=False)
+
+			info = await asyncio.to_thread(_do_pl_view)
 
 			playlist_title = info.get("title") or ""
 			playlist_channel = info.get("uploader") or info.get("channel") or ""
