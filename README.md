@@ -11,6 +11,12 @@ A feature-rich YouTube streaming proxy with a built-in web player. Watch videos,
 
 ## ✨ Features
 
+### Video Streaming
+- **Proxy-based playback** — streams MP4 bytes directly, no client-side extraction
+- **Range requests** for instant seeking and partial content delivery
+- **Resolution selector** — choose quality or let auto-select pick the best available
+- **Theater & normal modes** with keyboard shortcuts (Space, J/L, F)
+
 ### Search & Discovery
 - **YouTube search** with paginated results
 - **Channel pages** — Videos tab, Playlists tab, and in-channel search
