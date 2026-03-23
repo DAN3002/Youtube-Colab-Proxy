@@ -366,6 +366,72 @@ a {
 	outline: none;
 }
 
+.player-mode-switch {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px;
+	border-radius: 9999px;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-mode-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 30px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 9999px;
+	background: transparent;
+	color: #aaaaaa;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.player-mode-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #f1f1f1;
+}
+
+.player-mode-btn.is-active {
+	background: rgba(255, 255, 255, 0.2);
+	color: #f1f1f1;
+}
+
+.theater-comments-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 38px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: 9999px;
+	background: #272727;
+	color: #f1f1f1;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.theater-comments-toggle:hover {
+	background: #303030;
+}
+
+.theater-comments-toggle[aria-pressed="true"] {
+	background: #3a3a3a;
+	color: #e5e5e5;
+}
+
+.theater-comments-toggle:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
 /* === Watch Layout (70/30 split) === */
 .watch-layout {
 	display: flex;
@@ -383,6 +449,32 @@ a {
 	flex: 0 0 30%;
 	max-width: 30%;
 	min-width: 280px;
+}
+
+body.player-mode-theater .watch-layout {
+	flex-direction: column;
+	gap: 14px;
+}
+
+body.player-mode-theater .watch-player-pane,
+body.player-mode-theater .watch-comments-pane {
+	flex: 1 1 auto;
+	max-width: 100%;
+	width: 100%;
+	min-width: 0;
+}
+
+body.player-mode-theater .comments-panel {
+	max-height: none;
+}
+
+body.player-mode-theater.theater-comments-collapsed .watch-comments-pane {
+	display: none;
+}
+
+body.player-mode-theater.theater-comments-collapsed .watch-player-pane {
+	max-width: 100%;
+	width: 100%;
 }
 
 .comments-panel {
@@ -424,8 +516,24 @@ a {
 	margin-top: 2px;
 }
 
+.comments-head-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .comments-sort {
 	width: 130px;
+	height: 34px;
+	font-size: 13px;
+	padding-top: 0;
+	padding-bottom: 0;
+	border-radius: 9999px;
+	background-color: #272727;
+}
+
+.comments-limit {
+	width: 76px;
 	height: 34px;
 	font-size: 13px;
 	padding-top: 0;
@@ -587,6 +695,16 @@ a {
 
 	.comments-panel {
 		max-height: none;
+	}
+
+	.player-mode-switch {
+		width: 100%;
+		justify-content: space-between;
+	}
+
+	.player-mode-btn {
+		flex: 1 1 0;
+		justify-content: center;
 	}
 }
 

@@ -44,6 +44,8 @@ let currentListSource = null;
 let currentPlayingVideoId = null;
 let currentPlayingVideoUrl = null;
 let commentsReqToken = 0;
+let currentPlayerMode = 'normal';
+const PLAYER_MODE_KEY = 'ycp_player_mode_v1';
 
 // --- UI Helpers ---
 
@@ -73,6 +75,7 @@ const setStatus = (text) => {
 };
 
 const syncCommentsPanelHeight = () => {
+	if (currentPlayerMode === 'theater') return;
 	const panel = document.querySelector('#playerWrap .comments-panel');
 	const videoBox = document.querySelector('#playerWrap .watch-player-pane .aspect-video');
 	if (!(panel instanceof HTMLElement) || !(videoBox instanceof HTMLElement)) return;
@@ -85,6 +88,63 @@ const syncCommentsPanelHeight = () => {
 };
 
 window.addEventListener('resize', syncCommentsPanelHeight);
+
+const setPlayerModeUI = (mode) => {
+	$$('#playerModeSwitch .player-mode-btn').forEach((btn) => {
+		btn.classList.toggle('is-active', btn.getAttribute('data-mode') === mode);
+	});
+};
+
+const loadPlayerMode = () => {
+	try {
+		const raw = localStorage.getItem(PLAYER_MODE_KEY);
+		if (raw === 'theater' || raw === 'normal') return raw;
+	} catch {}
+	try {
+		const c = _getCookie(PLAYER_MODE_KEY);
+		if (c === 'theater' || c === 'normal') return c;
+	} catch {}
+	return 'normal';
+};
+
+const savePlayerMode = (mode) => {
+	if (mode !== 'theater' && mode !== 'normal') return;
+	try { localStorage.setItem(PLAYER_MODE_KEY, mode); } catch {}
+	_setCookie(PLAYER_MODE_KEY, mode, 365);
+};
+
+const applyTheaterCommentsCollapse = () => {
+	const body = document.body;
+	if (!body) return;
+	const app = loadAppSettings();
+	const collapsed = !!app.theaterCommentsCollapsed;
+	const inTheater = currentPlayerMode === 'theater';
+	body.classList.toggle('theater-comments-collapsed', inTheater && collapsed);
+	const btn = $('#theaterCommentsToggle');
+	if (btn instanceof HTMLButtonElement) {
+		btn.disabled = !inTheater;
+		btn.setAttribute('aria-disabled', !inTheater ? 'true' : 'false');
+		const pressed = inTheater && collapsed;
+		btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+		btn.title = pressed ? 'Show comments in theater mode' : 'Collapse comments in theater mode';
+		const label = btn.querySelector('span');
+		if (label) label.textContent = pressed ? 'Show comments' : 'Hide comments';
+	}
+};
+
+const setPlayerMode = (mode) => {
+	const normalizedMode = mode === 'theater' ? 'theater' : 'normal';
+	const body = document.body;
+	if (!body) return;
+	body.classList.toggle('player-mode-theater', normalizedMode === 'theater');
+	currentPlayerMode = normalizedMode;
+	setPlayerModeUI(normalizedMode);
+	savePlayerMode(normalizedMode);
+	applyTheaterCommentsCollapse();
+	const panel = document.querySelector('#playerWrap .comments-panel');
+	if (panel instanceof HTMLElement) panel.style.height = '';
+	syncCommentsPanelHeight();
+};
 
 const escapeHtml = (s) => String(s || '')
 	.replace(/&/g, '&amp;')
@@ -178,6 +238,10 @@ const loadCommentsForCurrent = async () => {
 		return;
 	}
 	const sort = ($('#commentsSort')?.value || 'top');
+	const app = loadAppSettings();
+	const limitRaw = Number($('#commentsLimit')?.value || app.commentsLimit || 50);
+	const allowed = [10, 20, 50, 70, 100];
+	const limit = allowed.includes(limitRaw) ? limitRaw : 50;
 	const token = ++commentsReqToken;
 	clearCommentsList();
 	setCommentsState('Loading comments...');
@@ -185,7 +249,7 @@ const loadCommentsForCurrent = async () => {
 		const base = currentPlayingVideoId
 			? `/api/comments?id=${encodeURIComponent(currentPlayingVideoId)}`
 			: `/api/comments?url=${encodeURIComponent(currentPlayingVideoUrl)}`;
-		const url = `${base}&sort=${encodeURIComponent(sort)}&limit=80`;
+		const url = `${base}&sort=${encodeURIComponent(sort)}&limit=${limit}`;
 		const res = await fetch(url);
 		const data = await res.json();
 		if (token !== commentsReqToken) return;
@@ -201,6 +265,14 @@ const loadCommentsForCurrent = async () => {
 };
 
 $('#commentsSort')?.addEventListener('change', () => {
+	loadCommentsForCurrent();
+});
+
+$('#commentsLimit')?.addEventListener('change', () => {
+	const allowed = [10, 20, 50, 70, 100];
+	const raw = Number($('#commentsLimit')?.value || 50);
+	const commentsLimit = allowed.includes(raw) ? raw : 50;
+	saveAppSettings({ ...loadAppSettings(), commentsLimit });
 	loadCommentsForCurrent();
 });
 
@@ -457,7 +529,7 @@ const playById = (id, title, channel = '') => {
 // --- App Settings ---
 
 const APP_SETTINGS_KEY = 'ycp_app_settings_v3';
-const defaultAppSettings = { onEnd: 'stop', resolution: 0 };
+const defaultAppSettings = { onEnd: 'stop', resolution: 0, commentsLimit: 50, theaterCommentsCollapsed: false };
 const loadAppSettings = () => {
 	try {
 		const raw = localStorage.getItem(APP_SETTINGS_KEY);
@@ -1132,8 +1204,31 @@ $('#streamUrl')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') pla
 // --- Init ---
 
 window.addEventListener('DOMContentLoaded', async () => {
+	$$('#playerModeSwitch .player-mode-btn').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const mode = btn.getAttribute('data-mode') || 'normal';
+			setPlayerMode(mode);
+		});
+	});
+	$('#theaterCommentsToggle')?.addEventListener('click', () => {
+		if (currentPlayerMode !== 'theater') return;
+		const app = loadAppSettings();
+		saveAppSettings({ ...app, theaterCommentsCollapsed: !app.theaterCommentsCollapsed });
+		applyTheaterCommentsCollapse();
+		syncCommentsPanelHeight();
+	});
+	setPlayerMode(loadPlayerMode());
+
 	setCommentsState('Play a YouTube video to load comments.');
 	setCommentsCount(-1);
+	const app = loadAppSettings();
+	const commentsLimitEl = $('#commentsLimit');
+	if (commentsLimitEl) {
+		const allowed = [10, 20, 50, 70, 100];
+		const limit = allowed.includes(Number(app.commentsLimit)) ? Number(app.commentsLimit) : 50;
+		commentsLimitEl.value = String(limit);
+	}
+	applyTheaterCommentsCollapse();
 	syncCommentsPanelHeight();
 
 	try {

@@ -133,7 +133,7 @@ def fetch_youtube_comments(watch_url: str, max_comments: int = 80, comment_sort:
 	now = time.time()
 	cached = COMMENTS_CACHE.get(cache_key)
 	if cached and (now - float(cached.get("ts", 0))) < COMMENTS_CACHE_TTL_SEC:
-		return cached.get("comments", [])  # type: ignore[return-value]
+		return cached.get("comments", []) 
 
 	# yt-dlp may include comments in normal video extraction when it is quick.
 	# Reuse those if available to avoid a second extractor call.

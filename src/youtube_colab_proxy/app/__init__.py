@@ -1,5 +1,6 @@
 import os
 from typing import Dict, Optional
+from urllib.parse import quote, urlparse
 
 import requests
 from flask import Flask, request, jsonify, Response, render_template
@@ -19,6 +20,30 @@ THUMB_HEADERS = {
 	"Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
 	"Referer": "https://www.youtube.com/",
 }
+
+
+def _to_proxy_image_url(raw_url: str) -> str:
+	if not raw_url:
+		return ""
+	try:
+		u = urlparse(raw_url)
+		if u.scheme not in ("http", "https"):
+			return ""
+		return f"/api/image-proxy?u={quote(raw_url, safe='')}"
+	except Exception:
+		return ""
+
+
+def _fetch_remote_image_bytes(img_url: str):
+	from .. import const as _const
+	s = requests.Session()
+	if _const.OUTBOUND_PROXY:
+		s.proxies.update({"http": _const.OUTBOUND_PROXY, "https": _const.OUTBOUND_PROXY})
+	r = s.get(img_url, timeout=12, headers=THUMB_HEADERS)
+	if r.status_code == 200 and r.content:
+		ctype = r.headers.get("Content-Type", "image/jpeg")
+		return r.content, ctype
+	return None, None
 
 
 def _pick_thumb_candidates(vid: str, pref: str = "hq"):
@@ -98,6 +123,25 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 			return Response("Thumbnail not found", status=404)
 		resp = Response(data, status=200, mimetype=ctype or "image/jpeg")
 		resp.headers["Cache-Control"] = "public, max-age=3600"
+		return resp
+
+	@app.get("/api/image-proxy")
+	def api_image_proxy():  # type: ignore
+		raw = (request.args.get("u") or "").strip()
+		if not raw:
+			return Response("Missing image url", status=400)
+		try:
+			u = urlparse(raw)
+			if u.scheme not in ("http", "https"):
+				return Response("Invalid image url", status=400)
+		except Exception:
+			return Response("Invalid image url", status=400)
+
+		data, ctype = _fetch_remote_image_bytes(raw)
+		if not data:
+			return Response("Image not found", status=404)
+		resp = Response(data, status=200, mimetype=ctype or "image/jpeg")
+		resp.headers["Cache-Control"] = "public, max-age=1800"
 		return resp
 
 	@app.get("/api/search")
@@ -289,10 +333,11 @@ def create_app(cookie_file: Optional[str] = None) -> Flask:
 				text = str(text or "").strip()
 				if not cid or not text:
 					return None
+				raw_thumb = str(c.get("author_thumbnail") or "")
 				return {
 					"id": cid,
 					"author": str(c.get("author") or "Unknown"),
-					"author_thumbnail": str(c.get("author_thumbnail") or ""),
+					"author_thumbnail": _to_proxy_image_url(raw_thumb),
 					"text": text,
 					"like_count": int(c.get("like_count") or 0),
 					"timestamp": c.get("timestamp"),
