@@ -510,6 +510,18 @@ async def api_channel_info(handle: str = Query("")):
 		)
 		channel_id = info.get("channel_id") or info.get("uploader_id") or ""
 
+		# Resolve the real @handle from the channel_url returned by yt-dlp
+		import re as _re
+		resolved_handle = ""
+		yt_channel_url = (info.get("channel_url") or info.get("uploader_url") or "").strip()
+		if yt_channel_url:
+			m = _re.search(r'youtube\.com/(@[A-Za-z0-9_.-]+)', yt_channel_url)
+			if m:
+				resolved_handle = m.group(1)
+		# If we couldn't find an @handle, keep the original handle only if it starts with @
+		if not resolved_handle and handle.startswith("@"):
+			resolved_handle = handle
+
 		# yt-dlp thumbnails list: separate avatar (square, yt3.ggpht.com)
 		# from banner (wide, yt3.googleusercontent.com/... banner patterns).
 		# Avatar URLs contain "yt3.ggpht.com" and are typically square.
@@ -548,9 +560,8 @@ async def api_channel_info(handle: str = Query("")):
 
 		return {
 			"title": channel_title,
-			"handle": handle,
-			"channel_id": channel_id,
-			"channel_url": _resolve_channel_url(handle),
+			"handle": resolved_handle,  # The real @handle (empty if unknown)
+			"channel_url": yt_channel_url or _resolve_channel_url(handle),
 			"avatar": to_proxy_image_url(raw_avatar) if raw_avatar else "",
 			"banner": to_proxy_image_url(raw_banner) if raw_banner else "",
 		}

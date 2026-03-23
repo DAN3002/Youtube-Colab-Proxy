@@ -89,48 +89,47 @@ const updateChannelInfo = (info) => {
 	const channelName = info.channel || '';
 	const channelHandle = info.channel_handle || '';
 
+	// Determine the best identifier for API calls and linking
+	// channelHandle may be "@Name" or a raw "UCxxxx" channel ID
+	const isAtHandle = channelHandle && channelHandle.startsWith('@');
+	const linkHandle = channelHandle || '';  // Use whatever we have for linking
+
 	// Update channel name
 	const nowChannel = $('#nowChannel');
 	if (nowChannel) nowChannel.textContent = channelName;
 
-	// Update channel handle – show @handle only (not channel ID)
+	// Update channel handle – show @handle only (not raw channel IDs)
 	const handleEl = $('#channelHandle');
 	if (handleEl) {
-		if (channelHandle && channelHandle.startsWith('@')) {
-			handleEl.textContent = channelHandle;
-		} else {
-			// Don't show raw channel IDs – leave empty
-			handleEl.textContent = '';
-		}
+		handleEl.textContent = isAtHandle ? channelHandle : '';
 	}
 
-	// Update channel link
+	// Update channel link (works with both @handle and UCxxxx)
 	const channelLink = $('#channelLink');
 	if (channelLink) {
-		if (channelHandle) {
-			channelLink.href = `/channel/${channelHandle}`;
-		} else {
-			channelLink.href = '#';
-		}
+		channelLink.href = linkHandle ? `/channel/${linkHandle}` : '#';
 	}
 
 	// Channel avatar – fetch from /api/channel/info for the real avatar URL
+	// Works with both @handle and UCxxxx channel IDs
 	const avatarImg = $('#channelAvatarImg');
 	const avatarIcon = $('#channelAvatarIcon');
-	if (avatarImg && channelHandle) {
-		fetch(`/api/channel/info?handle=${encodeURIComponent(channelHandle)}`)
+	if (avatarImg && linkHandle) {
+		fetch(`/api/channel/info?handle=${encodeURIComponent(linkHandle)}`)
 			.then(r => r.json())
 			.then(data => {
 				if (data && data.avatar) {
-					avatarImg.src = data.avatar;
-					avatarImg.onload = () => {
+					// Create a fresh image to avoid cached broken state
+					const testImg = new Image();
+					testImg.onload = () => {
+						avatarImg.src = data.avatar;
 						avatarImg.classList.remove('hidden');
-						if (avatarIcon) avatarIcon.classList.add('hidden');
+						if (avatarIcon) avatarIcon.style.display = 'none';
 					};
-					avatarImg.onerror = () => {
-						avatarImg.classList.add('hidden');
-						if (avatarIcon) avatarIcon.classList.remove('hidden');
+					testImg.onerror = () => {
+						// Keep fallback icon
 					};
+					testImg.src = data.avatar;
 				}
 			})
 			.catch(() => {});

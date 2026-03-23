@@ -104,6 +104,11 @@
 			elTitle.textContent = data.title || handle;
 			showEl(elTitle);
 
+			// Handle – update from API (resolves UCxxxx → @RealHandle)
+			if (data.handle && elHandle) {
+				elHandle.textContent = data.handle;
+			}
+
 			// Avatar
 			if (data.avatar) {
 				elAvatar.src = data.avatar;
