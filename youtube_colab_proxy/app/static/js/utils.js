@@ -45,7 +45,7 @@ const _getCookie = (name) => {
 // ---------------------------------------------------------------------------
 
 const APP_SETTINGS_KEY = 'ycp_app_settings_v3';
-const defaultAppSettings = { onEnd: 'stop', resolution: 0, commentsLimit: 20, theaterCommentsCollapsed: false };
+const defaultAppSettings = { onEnd: 'stop', resolution: 0, commentsLimit: 20, theaterCommentsCollapsed: false, loopVideo: false };
 
 const loadAppSettings = () => {
 	try {
