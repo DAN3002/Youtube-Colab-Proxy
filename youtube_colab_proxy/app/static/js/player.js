@@ -9,6 +9,13 @@ let currentPlayerMode = 'normal';
 let currentPlayingVideoId = null;
 let currentVideoInfo = null;
 
+// Navigation state for previous/next controls.
+let videoNavigationState = {
+	playlistItems: [],
+	playlistIndex: -1,
+	recommendationItems: [],
+};
+
 // ---------------------------------------------------------------------------
 // Player mode (normal / theater)
 // ---------------------------------------------------------------------------
@@ -237,6 +244,8 @@ const renderRecommendations = (recommendations) => {
 
 	if (!Array.isArray(recommendations) || recommendations.length === 0) {
 		panel.classList.add('hidden');
+		refreshVideoNavigationState();
+		updateVideoNavigationControls();
 		return;
 	}
 
@@ -265,7 +274,125 @@ const renderRecommendations = (recommendations) => {
 	list.innerHTML = html;
 	panel.classList.remove('hidden');
 	panel.classList.add('block');
+	refreshVideoNavigationState();
+	updateVideoNavigationControls();
 };
+
+const extractVideoIdFromHref = (href) => {
+	if (!href) return null;
+	try {
+		const u = new URL(href, window.location.origin);
+		const vid = (u.searchParams.get('v') || '').trim();
+		return vid || null;
+	} catch {
+		return null;
+	}
+};
+
+const refreshVideoNavigationState = () => {
+	const currentId = currentPlayingVideoId || extractVideoIdFromHref(window.location.href);
+
+	const playlistAnchors = $$('.watch-secondary a[href*="/watch?v="][href*="list="]');
+	const playlistItems = playlistAnchors.map((a) => {
+		const videoId = extractVideoIdFromHref(a.href);
+		return {
+			href: a.href,
+			videoId,
+		};
+	}).filter((x) => !!x.videoId);
+
+	let playlistIndex = -1;
+	if (playlistItems.length > 0 && currentId) {
+		playlistIndex = playlistItems.findIndex((item) => item.videoId === currentId);
+	}
+
+	const recommendationItems = $$('#recommendationsList a[href*="/watch?v="]').map((a) => {
+		const videoId = extractVideoIdFromHref(a.href);
+		return {
+			href: a.href,
+			videoId,
+		};
+	}).filter((x) => !!x.videoId && x.videoId !== currentId);
+
+	videoNavigationState = {
+		playlistItems,
+		playlistIndex,
+		recommendationItems,
+	};
+};
+
+const getPreviousHistoryItem = () => {
+	const currentId = currentPlayingVideoId || extractVideoIdFromHref(window.location.href);
+	const history = loadWatchHistory();
+	if (!Array.isArray(history) || history.length === 0) return null;
+	for (const item of history) {
+		if (item && item.id && item.id !== currentId) {
+			return {
+				href: `/watch?v=${encodeURIComponent(item.id)}`,
+				videoId: item.id,
+			};
+		}
+	}
+	return null;
+};
+
+const getNextVideoTarget = () => {
+	const { playlistItems, playlistIndex, recommendationItems } = videoNavigationState;
+	if (playlistIndex >= 0 && playlistIndex < playlistItems.length - 1) {
+		return playlistItems[playlistIndex + 1];
+	}
+	if (recommendationItems.length > 0) {
+		return recommendationItems[0];
+	}
+	return null;
+};
+
+const getPreviousVideoTarget = () => {
+	const { playlistItems, playlistIndex } = videoNavigationState;
+	if (playlistIndex > 0) {
+		return playlistItems[playlistIndex - 1];
+	}
+	return getPreviousHistoryItem();
+};
+
+const navigateToVideoTarget = (target) => {
+	if (!target || !target.href) return false;
+	window.location.href = target.href;
+	return true;
+};
+
+const setLoopToggleUI = () => {
+	const btn = $('#btnLoopVideo');
+	if (!(btn instanceof HTMLButtonElement)) return;
+	const app = loadAppSettings();
+	const active = !!app.loopVideo;
+	btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+	btn.title = active ? 'Loop enabled' : 'Loop current video';
+	btn.classList.toggle('text-yt-text', active);
+	btn.classList.toggle('text-yt-text-secondary', !active);
+	btn.classList.toggle('bg-yt-bg-hover', active);
+
+	const video = $('#player');
+	if (video) video.loop = active;
+};
+
+const updateVideoNavigationControls = () => {
+	const prevBtn = $('#btnPrevVideo');
+	const nextBtn = $('#btnNextVideo');
+	if (prevBtn instanceof HTMLButtonElement) {
+		const prevTarget = getPreviousVideoTarget();
+		prevBtn.disabled = !prevTarget;
+		prevBtn.title = prevTarget ? 'Previous video' : 'No previous video';
+	}
+	if (nextBtn instanceof HTMLButtonElement) {
+		const nextTarget = getNextVideoTarget();
+		nextBtn.disabled = !nextTarget;
+		nextBtn.title = nextTarget ? 'Next video' : 'No next video';
+	}
+};
+
+const goToPreviousVideo = () => navigateToVideoTarget(getPreviousVideoTarget());
+const goToNextVideo = () => navigateToVideoTarget(getNextVideoTarget());
 
 // ---------------------------------------------------------------------------
 // Video playback
@@ -334,11 +461,14 @@ const setPlayer = (src, title, channel = '') => {
 
 const playById = (id, title, channel = '') => {
 	currentPlayingVideoId = id || null;
+	refreshVideoNavigationState();
+	updateVideoNavigationControls();
 	const app = loadAppSettings();
 	const h = Number(app.resolution || 0);
 	const qs = h > 0 ? `&h=${h}` : '';
 	const url = `/stream?id=${encodeURIComponent(id)}${qs}`;
 	setPlayer(url, title, channel);
+	setLoopToggleUI();
 
 	// Show loading state for quality badge
 	const badge = $('#qualityBadge');
@@ -471,6 +601,12 @@ document.addEventListener('keydown', (e) => {
 		} else {
 			v.requestFullscreen().catch(() => {});
 		}
+	} else if (key === 'n' || key === 'N') {
+		e.preventDefault();
+		goToNextVideo();
+	} else if (key === 'p' || key === 'P') {
+		e.preventDefault();
+		goToPreviousVideo();
 	}
 });
 
@@ -483,22 +619,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	if (!v) return;
 	v.addEventListener('ended', () => {
 		const s = loadAppSettings();
-		if (s.onEnd === 'loop') {
+		if (s.loopVideo || s.onEnd === 'loop') {
 			try { v.currentTime = 0; v.play().catch(() => {}); } catch {}
 			return;
 		}
 		if (s.onEnd === 'next') {
-			// Try to find and navigate to next playlist item
-			const nextLink = document.querySelector('.playlist-next-link');
-			if (nextLink) {
-				window.location.href = nextLink.href;
-				return;
-			}
-			// Or try first recommendation
-			const firstRec = document.querySelector('#recommendationsList a');
-			if (firstRec) {
-				window.location.href = firstRec.href;
-			}
+			goToNextVideo();
 		}
 	});
 });
@@ -532,6 +658,22 @@ function initPlayerPage(videoId, playlistId, playlistIndex) {
 		commentsLimitEl.value = String(limit);
 	}
 	applyTheaterCommentsCollapse();
+	refreshVideoNavigationState();
+	updateVideoNavigationControls();
+	setLoopToggleUI();
+
+	$('#btnPrevVideo')?.addEventListener('click', () => {
+		goToPreviousVideo();
+	});
+	$('#btnNextVideo')?.addEventListener('click', () => {
+		goToNextVideo();
+	});
+	$('#btnLoopVideo')?.addEventListener('click', () => {
+		const appNow = loadAppSettings();
+		saveAppSettings({ ...appNow, loopVideo: !appNow.loopVideo });
+		setLoopToggleUI();
+		showToast(loadAppSettings().loopVideo ? 'Loop enabled' : 'Loop disabled');
+	});
 
 	// Start playing video
 	if (videoId) {
